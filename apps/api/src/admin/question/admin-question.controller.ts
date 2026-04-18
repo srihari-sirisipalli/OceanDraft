@@ -135,6 +135,13 @@ export class AdminQuestionController {
   @Post()
   async create(@Body() dto: CreateQuestionDto, @Req() req: AdminReq) {
     this.ensureOneCorrect(dto.options);
+
+    // Allocate a fresh ticket number = max + 1.
+    const maxTicket =
+      (await this.prisma.question.aggregate({ _max: { ticketNumber: true } }))._max
+        .ticketNumber ?? 0;
+    const nextTicket = maxTicket + 1;
+
     const q = await this.prisma.question.create({
       data: {
         title: dto.title,
@@ -145,6 +152,7 @@ export class AdminQuestionController {
         primaryMediaId: dto.primaryMediaId,
         isActive: dto.isActive ?? true,
         tags: dto.tags ?? [],
+        ticketNumber: nextTicket,
         createdById: req.admin!.sub,
         options: {
           create: dto.options.map((o, i) => ({

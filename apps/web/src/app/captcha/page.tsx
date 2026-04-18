@@ -36,7 +36,7 @@ export default function CaptchaPage() {
         method: 'POST',
         body: JSON.stringify({ challengeId, answer }),
       });
-      router.push('/start');
+      router.push('/reveal');
     } catch (err) {
       setError((err as ApiError).message);
       load();

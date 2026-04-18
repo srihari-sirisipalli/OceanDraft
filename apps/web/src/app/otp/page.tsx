@@ -74,7 +74,7 @@ export default function OtpPage() {
         body: JSON.stringify({ otpRequestId, code }),
       });
       sessionStorage.removeItem('od:devOtp');
-      router.push(r.captchaRequired ? '/captcha' : '/start');
+      router.push(r.captchaRequired ? '/captcha' : '/reveal');
     } catch (err) {
       setError((err as ApiError).message ?? 'Invalid code.');
     } finally {

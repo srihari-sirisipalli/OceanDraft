@@ -229,30 +229,103 @@ async function main() {
     });
   }
 
-  // --- Result templates ---
-  await prisma.resultTemplate.upsert({
-    where: { key: 'HOORAY_DEFAULT' },
-    update: {},
-    create: {
+  // Assign ticket numbers to any question that doesn't have one yet.
+  const maxExisting =
+    (await prisma.question.aggregate({ _max: { ticketNumber: true } }))._max
+      .ticketNumber ?? 0;
+  const withoutNumber = await prisma.question.findMany({
+    where: { ticketNumber: null },
+    orderBy: { createdAt: 'asc' },
+  });
+  let next = maxExisting + 1;
+  for (const q of withoutNumber) {
+    await prisma.question.update({
+      where: { id: q.id },
+      data: { ticketNumber: next++ },
+    });
+  }
+
+  // --- Result templates --- pool of randomized copy so two visitors
+  // rarely see the same message back to back.
+  const hoorays = [
+    {
       key: 'HOORAY_DEFAULT',
       headline: 'Hooray! Course set true ⚓',
-      bodyMarkdown:
-        "You've navigated this one perfectly. A true naval architect's eye — steady as she goes!",
-      isActive: true,
+      body: "You've navigated this one perfectly. A true naval architect's eye — steady as she goes!",
     },
-  });
-  await prisma.resultTemplate.upsert({
-    where: { key: 'FAIL_DEFAULT' },
-    update: {},
-    create: {
+    {
+      key: 'HOORAY_01',
+      headline: 'Smooth sailing, captain! 🧭',
+      body: 'A sharp read of the tide. The brass medal is yours.',
+    },
+    {
+      key: 'HOORAY_02',
+      headline: 'Fair winds, true answer! ⛵',
+      body: 'Your compass holds steady where others drift. Well chart-ed.',
+    },
+    {
+      key: 'HOORAY_03',
+      headline: 'Right on the waterline 🌊',
+      body: 'A bullseye on the bulwarks. The dockmaster tips their cap.',
+    },
+    {
+      key: 'HOORAY_04',
+      headline: 'Deckhand to first mate 🎖️',
+      body: "That's the kind of call a seasoned skipper makes. Onwards!",
+    },
+  ];
+  const fails = [
+    {
       key: 'FAIL_DEFAULT',
       headline: 'Rough seas today 🌊',
-      bodyMarkdown:
-        'Every captain learns the charts. The tide turns — come back and try again when the winds are fair.',
-      revealCorrectOnFail: false,
-      isActive: true,
+      body: 'Every captain learns the charts. The tide turns — come back and try again.',
     },
-  });
+    {
+      key: 'FAIL_01',
+      headline: 'Missed the buoy this time 🛟',
+      body: 'The currents were tricky. Chart your course and have another go.',
+    },
+    {
+      key: 'FAIL_02',
+      headline: 'Off the shipping lane ⚓',
+      body: 'Even the best navigators re-plot. The harbour awaits your return.',
+    },
+    {
+      key: 'FAIL_03',
+      headline: 'A little off the waterline 🌫️',
+      body: 'Fog can hide the right heading. Clear skies next time.',
+    },
+    {
+      key: 'FAIL_04',
+      headline: 'The horizon moved on you ⛴️',
+      body: 'No captain is born at sea. Come back for another sighting.',
+    },
+  ];
+  for (const t of hoorays) {
+    await prisma.resultTemplate.upsert({
+      where: { key: t.key },
+      update: { headline: t.headline, bodyMarkdown: t.body, isActive: true },
+      create: {
+        key: t.key,
+        headline: t.headline,
+        bodyMarkdown: t.body,
+        isActive: true,
+      },
+    });
+  }
+  for (const t of fails) {
+    await prisma.resultTemplate.upsert({
+      where: { key: t.key },
+      update: { headline: t.headline, bodyMarkdown: t.body, isActive: true },
+      create: {
+        key: t.key,
+        headline: t.headline,
+        bodyMarkdown: t.body,
+        revealCorrectOnFail: false,
+        isActive: true,
+      },
+    });
+  }
 
   // --- App settings ---
   const settings: { key: string; value: unknown; type: string }[] = [
@@ -266,7 +339,7 @@ async function main() {
     { key: 'event.collect_mobile', value: true, type: 'bool' },
     { key: 'event.auto_reset_seconds', value: 10, type: 'int' },
     { key: 'event.booth_name', value: 'OceanDraft · Event booth', type: 'string' },
-    { key: 'assignment.mode', value: 'RANDOM_ACTIVE', type: 'enum' },
+    { key: 'assignment.mode', value: 'ONE_TIME_USE_POOL', type: 'enum' },
     { key: 'result.reveal_correct_on_fail', value: false, type: 'bool' },
     { key: 'branding.product_name', value: 'OceanDraft', type: 'string' },
     { key: 'privacy.policy_url', value: 'https://example.com/privacy', type: 'url' },
@@ -274,6 +347,7 @@ async function main() {
   // Keys whose defaults we actively re-align on every seed (event-mode reshape).
   const forceReset = new Set([
     'attempt.policy',
+    'assignment.mode',
     'event.kiosk_mode',
     'event.collect_mobile',
     'event.auto_reset_seconds',

@@ -224,6 +224,8 @@ model Category {
 
 model Question {
   id             String             @id @default(cuid())
+  // Human-friendly ticket / question number shown to visitors.
+  ticketNumber   Int?               @unique
   title          String
   stemMarkdown   String
   type           QuestionType       @default(TEXT)

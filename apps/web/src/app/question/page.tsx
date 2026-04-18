@@ -8,8 +8,10 @@ import { api, type ApiError } from '@/lib/api';
 
 type QuestionPayload = {
   attemptId: string;
+  ticketNumber: number | null;
   question: {
     id: string;
+    ticketNumber: number | null;
     title: string;
     stem: string;
     type: 'TEXT' | 'IMAGE' | 'MIXED';
@@ -35,7 +37,15 @@ export default function QuestionPage() {
   useEffect(() => {
     (async () => {
       try {
-        const q = await api<QuestionPayload>('/assignment/next');
+        // Prefer the pre-fetched assignment from /reveal to avoid a double call.
+        const cached = sessionStorage.getItem('od:assignment');
+        let q: QuestionPayload;
+        if (cached) {
+          q = JSON.parse(cached) as QuestionPayload;
+          sessionStorage.removeItem('od:assignment');
+        } else {
+          q = await api<QuestionPayload>('/assignment/next');
+        }
         setData(q);
         setShownAt(Date.now());
         setNow(Date.now());
@@ -101,9 +111,16 @@ export default function QuestionPage() {
     <Shell>
       <section className="shell-hero flex-col py-12 md:py-16">
         <div className="mx-auto w-full max-w-4xl">
-          {/* header with timer */}
+          {/* header with ticket + timer */}
           <div className="mb-8 flex items-center justify-between">
-            <span className="eyebrow">The question</span>
+            <div className="flex items-center gap-3">
+              <span className="eyebrow">Question</span>
+              {data.ticketNumber != null && (
+                <span className="rounded-md border border-brass-gold/50 bg-brass-gold/10 px-3 py-1 font-mono text-lg text-brass-gold">
+                  #{String(data.ticketNumber).padStart(2, '0')}
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-2 rounded-full border border-blueprint-cyan/30 bg-deep-sea/60 px-4 py-1.5 font-mono text-sm text-blueprint-cyan">
               <span className="h-2 w-2 animate-pulse rounded-full bg-blueprint-cyan" />
               {String(Math.floor(seconds / 60)).padStart(2, '0')}:

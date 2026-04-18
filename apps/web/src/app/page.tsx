@@ -49,7 +49,7 @@ function KioskGate({
     setErr(null);
     try {
       await api('/candidates/guest', { method: 'POST' });
-      onReady('/question');
+      onReady('/reveal');
     } catch (e) {
       setErr((e as ApiError).message ?? 'Could not start.');
       setLoading(false);

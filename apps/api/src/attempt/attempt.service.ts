@@ -63,7 +63,18 @@ export class AttemptService {
           where: { key: overrideKey, isActive: true },
         })
       : null;
-    const templateKey = override ? overrideKey : `${base}_DEFAULT`;
+    let templateKey = override?.key ?? `${base}_DEFAULT`;
+    if (!override) {
+      // Random pick from the HOORAY_* / FAIL_* pool (excluding category-specific keys).
+      const poolCandidates = await this.prisma.resultTemplate.findMany({
+        where: { key: { startsWith: `${base}_` }, isActive: true },
+        select: { key: true },
+      });
+      const pool = poolCandidates.filter((p) => !p.key.includes('_CAT_'));
+      if (pool.length > 0) {
+        templateKey = pool[Math.floor(Math.random() * pool.length)].key;
+      }
+    }
 
     const updated = await this.prisma.attempt.update({
       where: { id: attempt.id },

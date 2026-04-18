@@ -185,8 +185,10 @@ export class AssignmentService {
     if (!attempt) throw new NotFoundException();
     return {
       attemptId: attempt.id,
+      ticketNumber: attempt.question.ticketNumber ?? null,
       question: {
         id: attempt.question.id,
+        ticketNumber: attempt.question.ticketNumber ?? null,
         title: attempt.question.title,
         stem: attempt.question.stemMarkdown,
         type: attempt.question.type,
