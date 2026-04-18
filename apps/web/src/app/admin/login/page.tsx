@@ -10,6 +10,8 @@ export default function AdminLoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
+  const [needsMfa, setNeedsMfa] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -20,11 +22,21 @@ export default function AdminLoginPage() {
     try {
       await api('/admin/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({
+          username,
+          password,
+          mfaCode: mfaCode || undefined,
+        }),
       });
       router.push('/admin/dashboard');
     } catch (err) {
-      setError((err as ApiError).message ?? 'Login failed.');
+      const e = err as ApiError;
+      if (e.code === 'MFA_REQUIRED') {
+        setNeedsMfa(true);
+        setError(null);
+      } else {
+        setError(e.message ?? 'Login failed.');
+      }
     } finally {
       setLoading(false);
     }
@@ -62,6 +74,7 @@ export default function AdminLoginPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 className="input"
                 autoComplete="username"
+                disabled={needsMfa}
               />
             </div>
             <div>
@@ -76,15 +89,45 @@ export default function AdminLoginPage() {
                 className="input"
                 autoComplete="current-password"
                 required
+                disabled={needsMfa}
               />
             </div>
+            {needsMfa && (
+              <div>
+                <label className="label" htmlFor="mfa">
+                  Authenticator code
+                </label>
+                <input
+                  id="mfa"
+                  inputMode="numeric"
+                  pattern="\d*"
+                  maxLength={6}
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                  className="input font-mono text-center text-2xl tracking-[0.5em]"
+                  placeholder="——————"
+                  required
+                  autoFocus
+                />
+                <p className="helper">From your authenticator app (TOTP).</p>
+              </div>
+            )}
             {error && <div className="alert-error">{error}</div>}
             <button type="submit" disabled={loading} className="btn-primary w-full">
-              {loading ? 'Signing in…' : 'Sign in →'}
+              {loading ? 'Signing in…' : needsMfa ? 'Verify & continue →' : 'Sign in →'}
             </button>
-            <p className="text-center text-xs text-anchor-steel">
-              Forgot password? Contact a super admin to reset.
-            </p>
+            {needsMfa && (
+              <button
+                type="button"
+                onClick={() => {
+                  setNeedsMfa(false);
+                  setMfaCode('');
+                }}
+                className="btn-ghost mx-auto block text-sm"
+              >
+                ← Back
+              </button>
+            )}
           </form>
         </div>
       </section>

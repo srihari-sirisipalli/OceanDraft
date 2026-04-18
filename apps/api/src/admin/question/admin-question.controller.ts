@@ -109,10 +109,27 @@ export class AdminQuestionController {
 
   @Get(':id')
   async get(@Param('id') id: string) {
-    return this.prisma.question.findUnique({
+    const q = await this.prisma.question.findUnique({
       where: { id },
-      include: { options: { orderBy: { orderIndex: 'asc' } }, category: true },
+      include: {
+        options: { orderBy: { orderIndex: 'asc' } },
+        category: true,
+        primaryMedia: true,
+      },
     });
+    if (!q) return null;
+    return {
+      ...q,
+      primaryMedia: q.primaryMedia
+        ? {
+            id: q.primaryMedia.id,
+            url: `/api/v1/media/${q.primaryMedia.id}`,
+            mimeType: q.primaryMedia.mimeType,
+            altText: q.primaryMedia.altText,
+            sizeBytes: q.primaryMedia.sizeBytes,
+          }
+        : null,
+    };
   }
 
   @Post()

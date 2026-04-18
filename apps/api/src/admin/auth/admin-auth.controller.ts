@@ -11,13 +11,14 @@ import {
   Headers,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { AdminAuthService } from './admin-auth.service';
 import { AdminGuard, type AdminReq } from './admin.guard';
 
 class LoginDto {
   @IsString() @IsNotEmpty() username!: string;
   @IsString() @IsNotEmpty() password!: string;
+  @IsString() @IsOptional() mfaCode?: string;
 }
 
 @Controller('admin/auth')
@@ -32,7 +33,13 @@ export class AdminAuthController {
     @Headers('user-agent') ua: string,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const r = await this.svc.login({ username: dto.username, password: dto.password, ip, ua });
+    const r = await this.svc.login({
+      username: dto.username,
+      password: dto.password,
+      mfaCode: dto.mfaCode,
+      ip,
+      ua,
+    });
     res.cookie('od_admin', r.token, {
       httpOnly: true,
       sameSite: 'lax',

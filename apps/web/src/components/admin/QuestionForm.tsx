@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api, type ApiError } from '@/lib/api';
+import { MediaPicker, type MediaItem } from './MediaPicker';
 
 type Category = { id: string; name: string; slug: string };
 type OptionDraft = { text: string; isCorrect: boolean };
@@ -45,6 +46,7 @@ export function QuestionForm({
   const router = useRouter();
   const [cats, setCats] = useState<Category[]>([]);
   const [draft, setDraft] = useState<QuestionDraft>(blank);
+  const [media, setMedia] = useState<MediaItem | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -75,6 +77,7 @@ export function QuestionForm({
           isActive: boolean;
           tags: string[];
           options: { textMarkdown: string; isCorrect: boolean; orderIndex: number }[];
+          primaryMedia: MediaItem | null;
         }>(`/admin/questions/${id}`);
         setDraft({
           title: q.title,
@@ -88,6 +91,7 @@ export function QuestionForm({
             .sort((a, b) => a.orderIndex - b.orderIndex)
             .map((o) => ({ text: o.textMarkdown, isCorrect: o.isCorrect })),
         });
+        setMedia(q.primaryMedia);
       } catch (e) {
         setErr((e as ApiError).message);
       }
@@ -100,12 +104,10 @@ export function QuestionForm({
       options: d.options.map((o, idx) => ({ ...o, isCorrect: idx === i })),
     }));
   }
-
   function addOption() {
     if (draft.options.length >= 6) return;
     setDraft((d) => ({ ...d, options: [...d.options, { text: '', isCorrect: false }] }));
   }
-
   function removeOption(i: number) {
     if (draft.options.length <= 2) return;
     setDraft((d) => {
@@ -130,6 +132,10 @@ export function QuestionForm({
       setErr('Exactly one option must be marked correct.');
       return;
     }
+    if (draft.type === 'IMAGE' && !media) {
+      setErr('Image-type questions require an image.');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -140,6 +146,7 @@ export function QuestionForm({
         type: draft.type,
         difficulty: draft.difficulty,
         isActive: draft.isActive,
+        primaryMediaId: media?.id ?? null,
         tags: draft.tags
           .split(',')
           .map((t) => t.trim().toLowerCase())
@@ -208,6 +215,10 @@ export function QuestionForm({
               <p className="helper">
                 Shown to the candidate. Basic formatting (bold, italic) supported.
               </p>
+            </div>
+            <div>
+              <label className="label">Primary image (optional for TEXT, required for IMAGE)</label>
+              <MediaPicker value={media} onChange={setMedia} />
             </div>
           </div>
 

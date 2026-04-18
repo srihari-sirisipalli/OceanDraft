@@ -24,6 +24,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <NavLink href="/admin/categories" label="Categories" />
             <NavLink href="/admin/attempts" label="Attempts" />
             <NavLink href="/admin/settings" label="Settings" />
+            <NavLink href="/admin/users" label="Admins" />
+            <NavLink href="/admin/profile" label="Profile" />
           </div>
         </div>
       </nav>

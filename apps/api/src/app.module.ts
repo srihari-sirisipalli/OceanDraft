@@ -1,10 +1,14 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { configuration } from './config/configuration';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { RedisModule } from './common/redis/redis.module';
+import { S3Module } from './common/s3/s3.module';
 import { HealthModule } from './health/health.module';
 import { SmsModule } from './sms/sms.module';
+import { MediaModule } from './media/media.module';
 import { CandidateModule } from './candidate/candidate.module';
 import { OtpModule } from './otp/otp.module';
 import { CaptchaModule } from './captcha/captcha.module';
@@ -18,16 +22,26 @@ import { AdminQuestionModule } from './admin/question/admin-question.module';
 import { AdminCategoryModule } from './admin/category/admin-category.module';
 import { AdminAttemptModule } from './admin/attempt/admin-attempt.module';
 import { AdminSettingsModule } from './admin/settings/admin-settings.module';
+import { AdminMediaModule } from './admin/media/admin-media.module';
+import { AdminUserModule } from './admin/user/admin-user.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
+    ThrottlerModule.forRoot([
+      // Default bucket: 120 requests per minute per IP
+      { name: 'default', ttl: 60_000, limit: 120 },
+      // Strict bucket (opt-in via @Throttle()) — 10 / minute
+      { name: 'strict', ttl: 60_000, limit: 10 },
+    ]),
     PrismaModule,
     RedisModule,
+    S3Module,
     HealthModule,
     SmsModule,
     SettingsModule,
     AuditModule,
+    MediaModule,
     CandidateModule,
     OtpModule,
     CaptchaModule,
@@ -39,6 +53,9 @@ import { AdminSettingsModule } from './admin/settings/admin-settings.module';
     AdminCategoryModule,
     AdminAttemptModule,
     AdminSettingsModule,
+    AdminMediaModule,
+    AdminUserModule,
   ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}
