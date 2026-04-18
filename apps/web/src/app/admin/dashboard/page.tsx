@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { api, type ApiError } from '@/lib/api';
 
 type Row = {
@@ -16,16 +17,19 @@ type Row = {
 export default function AdminDashboard() {
   const [rows, setRows] = useState<Row[]>([]);
   const [total, setTotal] = useState(0);
+  const [qCount, setQCount] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const r = await api<{ rows: Row[]; total: number }>(
-          '/admin/attempts?page=1&pageSize=10',
-        );
+        const [r, q] = await Promise.all([
+          api<{ rows: Row[]; total: number }>('/admin/attempts?page=1&pageSize=10'),
+          api<{ total: number }>('/admin/questions?pageSize=1'),
+        ]);
         setRows(r.rows);
         setTotal(r.total);
+        setQCount(q.total);
       } catch (e) {
         setErr((e as ApiError).message ?? 'Failed to load');
       }
@@ -33,72 +37,132 @@ export default function AdminDashboard() {
   }, []);
 
   const correct = rows.filter((r) => r.result === 'CORRECT').length;
-  const successRate = rows.length ? Math.round((correct / rows.length) * 100) : 0;
+  const sampleRate = rows.length ? Math.round((correct / rows.length) * 100) : 0;
+  const avgSec = rows.length
+    ? (
+        rows.reduce((s, r) => s + (r.timeTakenMs ?? 0), 0) /
+        rows.length /
+        1000
+      ).toFixed(1)
+    : '—';
 
   return (
-    <div className="space-y-6">
-      <h1 className="headline">Dashboard</h1>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Kpi label="Total attempts" value={total} />
-        <Kpi label="Shown (latest 10) correct" value={correct} />
-        <Kpi label="Success rate (sample)" value={`${successRate}%`} />
+    <div className="space-y-10">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <span className="eyebrow">Overview</span>
+          <h1 className="display-lg mt-2">Dashboard</h1>
+        </div>
+        <div className="flex gap-3">
+          <Link href="/admin/questions/new" className="btn-primary">
+            + New question
+          </Link>
+          <Link href="/admin/attempts" className="btn-secondary">
+            View attempts
+          </Link>
+        </div>
       </div>
 
-      {err && <div className="rounded bg-coral-red/20 p-3 text-coral-red">{err}</div>}
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <Kpi label="Total attempts" value={total} tint="cyan" />
+        <Kpi label="Questions" value={qCount ?? '—'} tint="gold" />
+        <Kpi label="Recent success %" value={`${sampleRate}%`} tint="green" />
+        <Kpi label="Avg time (latest 10)" value={`${avgSec}s`} tint="cyan" />
+      </div>
 
-      <div className="card overflow-x-auto">
-        <h2 className="mb-4 font-display text-xl">Recent attempts</h2>
-        <table className="w-full text-left text-sm">
-          <thead className="text-anchor-steel">
-            <tr>
-              <th className="py-2">Mobile</th>
-              <th className="py-2">Question</th>
-              <th className="py-2">Category</th>
-              <th className="py-2">Result</th>
-              <th className="py-2">Time</th>
-              <th className="py-2">At</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.attemptId} className="border-t border-blueprint-cyan/10">
-                <td className="py-2 font-mono">{r.maskedMobile}</td>
-                <td className="py-2">{r.questionTitle}</td>
-                <td className="py-2">{r.category}</td>
-                <td
-                  className={`py-2 ${
-                    r.result === 'CORRECT' ? 'text-foam-green' : 'text-coral-red'
-                  }`}
-                >
-                  {r.result}
-                </td>
-                <td className="py-2">
-                  {r.timeTakenMs ? `${(r.timeTakenMs / 1000).toFixed(1)}s` : '—'}
-                </td>
-                <td className="py-2 text-anchor-steel">
-                  {r.submittedAt ? new Date(r.submittedAt).toLocaleString() : '—'}
-                </td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
+      {err && <div className="alert-error">{err}</div>}
+
+      <div className="panel">
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="display-md">Recent attempts</h2>
+          <Link href="/admin/attempts" className="btn-ghost">
+            See all →
+          </Link>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="tbl">
+            <thead>
               <tr>
-                <td colSpan={6} className="py-6 text-center text-anchor-steel">
-                  No attempts yet.
-                </td>
+                <th>Mobile</th>
+                <th>Question</th>
+                <th>Category</th>
+                <th>Result</th>
+                <th>Time</th>
+                <th>Submitted</th>
+                <th />
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.attemptId}>
+                  <td className="font-mono">{r.maskedMobile}</td>
+                  <td className="max-w-xs truncate">{r.questionTitle}</td>
+                  <td>{r.category}</td>
+                  <td>
+                    <span
+                      className={
+                        r.result === 'CORRECT' ? 'pill-green' : 'pill-red'
+                      }
+                    >
+                      {r.result}
+                    </span>
+                  </td>
+                  <td>
+                    {r.timeTakenMs ? `${(r.timeTakenMs / 1000).toFixed(1)}s` : '—'}
+                  </td>
+                  <td className="text-anchor-steel">
+                    {r.submittedAt
+                      ? new Date(r.submittedAt).toLocaleString()
+                      : '—'}
+                  </td>
+                  <td>
+                    <Link
+                      href={`/admin/attempts/${r.attemptId}`}
+                      className="btn-ghost text-xs"
+                    >
+                      Open →
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="py-10 text-center text-anchor-steel">
+                    No attempts yet — share the candidate URL.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 }
 
-function Kpi({ label, value }: { label: string; value: number | string }) {
+function Kpi({
+  label,
+  value,
+  tint,
+}: {
+  label: string;
+  value: number | string;
+  tint: 'cyan' | 'green' | 'gold';
+}) {
+  const tintMap: Record<string, string> = {
+    cyan: 'from-blueprint-cyan/25 to-blueprint-cyan/5 text-blueprint-cyan',
+    green: 'from-foam-green/25 to-foam-green/5 text-foam-green',
+    gold: 'from-brass-gold/25 to-brass-gold/5 text-brass-gold',
+  };
   return (
-    <div className="card">
-      <div className="text-xs uppercase tracking-widest text-anchor-steel">{label}</div>
-      <div className="mt-2 font-display text-3xl">{value}</div>
+    <div className="relative overflow-hidden rounded-2xl border border-blueprint-cyan/15 bg-hull-navy/50 p-6">
+      <div
+        className={`absolute inset-0 bg-gradient-to-br ${tintMap[tint]} opacity-30`}
+      />
+      <div className="relative">
+        <div className="eyebrow">{label}</div>
+        <div className="mt-3 font-display text-4xl text-sail-white">{value}</div>
+      </div>
     </div>
   );
 }

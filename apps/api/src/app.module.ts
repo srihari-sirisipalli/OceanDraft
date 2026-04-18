@@ -15,6 +15,7 @@ import { SettingsModule } from './settings/settings.module';
 import { AuditModule } from './audit/audit.module';
 import { AdminAuthModule } from './admin/auth/admin-auth.module';
 import { AdminQuestionModule } from './admin/question/admin-question.module';
+import { AdminCategoryModule } from './admin/category/admin-category.module';
 import { AdminAttemptModule } from './admin/attempt/admin-attempt.module';
 import { AdminSettingsModule } from './admin/settings/admin-settings.module';
 
@@ -35,6 +36,7 @@ import { AdminSettingsModule } from './admin/settings/admin-settings.module';
     ResultModule,
     AdminAuthModule,
     AdminQuestionModule,
+    AdminCategoryModule,
     AdminAttemptModule,
     AdminSettingsModule,
   ],

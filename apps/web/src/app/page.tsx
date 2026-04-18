@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { MarineFrame } from '@/components/MarineFrame';
+import { Shell } from '@/components/Shell';
+import { CompassMark } from '@/components/CompassMark';
 import { api, type ApiError } from '@/lib/api';
 
 export default function LandingPage() {
@@ -17,14 +18,10 @@ export default function LandingPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!consent) {
-      setError('Please accept the consent to continue.');
-      return;
-    }
-    if (!/^\d{6,14}$/.test(mobile)) {
-      setError('Enter a valid mobile number (digits only).');
-      return;
-    }
+    if (!consent) return setError('Please accept the consent to continue.');
+    if (!/^\d{6,14}$/.test(mobile))
+      return setError('Enter a valid mobile number (digits only).');
+
     setLoading(true);
     try {
       const full = `${country}${mobile}`;
@@ -51,74 +48,118 @@ export default function LandingPage() {
   }
 
   return (
-    <MarineFrame
-      title="Navigate the one question."
-      subtitle="Verify your mobile, weigh anchor, and answer a single marine & naval architecture question. We'll chart your result in seconds."
+    <Shell
+      topRight={
+        <Link href="/admin/login" className="btn-ghost text-sm">
+          Admin Bridge →
+        </Link>
+      }
     >
-      <form onSubmit={onSubmit} className="card space-y-5">
-        <div className="flex gap-2">
-          <div className="w-24">
-            <label className="label" htmlFor="country">
-              Code
-            </label>
-            <select
-              id="country"
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-              className="input"
-            >
-              <option value="+91">+91</option>
-              <option value="+1">+1</option>
-              <option value="+44">+44</option>
-              <option value="+971">+971</option>
-              <option value="+65">+65</option>
-            </select>
-          </div>
-          <div className="flex-1">
-            <label className="label" htmlFor="mobile">
-              Mobile number
-            </label>
-            <input
-              id="mobile"
-              inputMode="numeric"
-              pattern="\d*"
-              placeholder="e.g. 9876543210"
-              value={mobile}
-              onChange={(e) => setMobile(e.target.value.replace(/\D/g, ''))}
-              className="input"
-              required
-            />
+      <section className="shell-hero grid grid-cols-1 gap-14 py-14 md:grid-cols-2 md:gap-20 md:py-24">
+        {/* Hero content */}
+        <div className="flex flex-col justify-center">
+          <span className="eyebrow mb-6">⚓ Single-question assessment</span>
+          <h1 className="display-xl mb-6">
+            Chart your course.
+            <br />
+            <span className="text-blueprint-cyan">Answer one question.</span>
+          </h1>
+          <p className="lede mb-10">
+            Verify by mobile. Receive exactly one marine & naval architecture
+            question. Submit your answer and see your result instantly — themed
+            in the language of shipyards and blueprints.
+          </p>
+          <div className="hidden gap-6 text-sm text-anchor-steel md:flex">
+            <FeatureBadge label="OTP-verified" />
+            <FeatureBadge label="One question" />
+            <FeatureBadge label="Instant result" />
           </div>
         </div>
 
-        <label className="flex items-start gap-3 text-sm text-anchor-steel">
-          <input
-            type="checkbox"
-            checked={consent}
-            onChange={(e) => setConsent(e.target.checked)}
-            className="mt-1 h-4 w-4 rounded border-blueprint-cyan/50 bg-deep-sea text-blueprint-cyan"
-          />
-          <span>
-            I consent to receive an SMS verification code and to the processing of my mobile
-            number per the{' '}
-            <a href="#" className="text-blueprint-cyan underline">
-              privacy notice
-            </a>
-            .
-          </span>
-        </label>
+        {/* Form */}
+        <div className="flex flex-col justify-center">
+          <form onSubmit={onSubmit} className="panel space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="display-md">Set sail</h2>
+              <CompassMark size={52} />
+            </div>
+            <p className="small text-anchor-steel">
+              We'll send a 6-digit code to your mobile to verify you.
+            </p>
 
-        {error && <div className="rounded bg-coral-red/20 p-3 text-sm text-coral-red">{error}</div>}
+            <div className="flex gap-3">
+              <div className="w-28">
+                <label className="label" htmlFor="country">
+                  Code
+                </label>
+                <select
+                  id="country"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  className="input"
+                >
+                  <option value="+91">+91</option>
+                  <option value="+1">+1</option>
+                  <option value="+44">+44</option>
+                  <option value="+971">+971</option>
+                  <option value="+65">+65</option>
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="label" htmlFor="mobile">
+                  Mobile number
+                </label>
+                <input
+                  id="mobile"
+                  inputMode="numeric"
+                  pattern="\d*"
+                  placeholder="98765 43210"
+                  value={mobile}
+                  onChange={(e) => setMobile(e.target.value.replace(/\D/g, ''))}
+                  className="input"
+                  required
+                />
+              </div>
+            </div>
 
-        <div className="flex items-center justify-between">
-          <Link href="/admin/login" className="small underline">
-            Admin login →
-          </Link>
-          <button type="submit" disabled={loading} className="btn-primary">
-            {loading ? 'Sending…' : 'Send OTP'}
-          </button>
+            <label className="flex cursor-pointer items-start gap-3 text-sm text-anchor-steel">
+              <input
+                type="checkbox"
+                checked={consent}
+                onChange={(e) => setConsent(e.target.checked)}
+                className="mt-1 h-5 w-5 rounded border-blueprint-cyan/50 bg-deep-sea accent-blueprint-cyan"
+              />
+              <span>
+                I consent to receive a one-time SMS code and to the processing
+                of my mobile number per the{' '}
+                <a href="#" className="text-blueprint-cyan underline">
+                  privacy notice
+                </a>
+                .
+              </span>
+            </label>
+
+            {error && <div className="alert-error">{error}</div>}
+
+            <button type="submit" disabled={loading} className="btn-primary w-full">
+              {loading ? 'Sending code…' : 'Send OTP →'}
+            </button>
+
+            <p className="text-center text-xs text-anchor-steel">
+              By continuing, you accept a single-attempt assessment.
+            </p>
+          </form>
         </div>
-      </form>
-    </MarineFrame>
+      </section>
+    </Shell>
+  );
+}
+
+function FeatureBadge({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="h-2 w-2 rounded-full bg-blueprint-cyan" />
+      <span>{label}</span>
+    </div>
   );
 }

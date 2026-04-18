@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { MarineFrame } from '@/components/MarineFrame';
+import { Shell } from '@/components/Shell';
 import { api, type ApiError } from '@/lib/api';
 
 type ResultPayload = {
@@ -34,16 +34,26 @@ export default function ResultPage({ params }: { params: { id: string } }) {
 
   if (error) {
     return (
-      <MarineFrame title="Something went adrift">
-        <div className="card text-coral-red">{error}</div>
-      </MarineFrame>
+      <Shell>
+        <section className="shell-hero py-24">
+          <div className="mx-auto max-w-lg text-center">
+            <h1 className="display-lg">Something went adrift</h1>
+            <p className="alert-error mt-6 text-left">{error}</p>
+          </div>
+        </section>
+      </Shell>
     );
   }
   if (!data) {
     return (
-      <MarineFrame title="Reading the soundings…">
-        <div className="card small">One moment…</div>
-      </MarineFrame>
+      <Shell>
+        <section className="shell-hero py-24">
+          <div className="mx-auto max-w-lg text-center">
+            <div className="shimmer mx-auto h-3 w-40 rounded-full" />
+            <h1 className="display-lg mt-8">Reading the soundings…</h1>
+          </div>
+        </section>
+      </Shell>
     );
   }
 
@@ -53,42 +63,78 @@ export default function ResultPage({ params }: { params: { id: string } }) {
     : null;
 
   return (
-    <MarineFrame>
-      <div className="card text-center">
-        <div
-          className={`mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full border-4 ${
-            correct ? 'border-foam-green text-foam-green' : 'border-coral-red text-coral-red'
-          }`}
-        >
-          <span className="font-display text-5xl">{correct ? '⚓' : '⛵'}</span>
-        </div>
-
-        <h1
-          className={`headline mb-3 ${correct ? 'text-foam-green' : 'text-coral-red'}`}
-        >
-          {data.headline}
-        </h1>
-        <p className="mx-auto max-w-md text-sail-white/90">{data.body}</p>
-
-        {data.correctOption && (
-          <div className="mt-4 rounded bg-blueprint-cyan/10 p-3 text-sm">
-            <span className="text-blueprint-cyan">Correct answer:</span>{' '}
-            {data.correctOption.text}
+    <Shell>
+      <section className="shell-hero py-16 md:py-24">
+        <div className="mx-auto flex w-full max-w-3xl flex-col items-center text-center">
+          {/* Hero medallion */}
+          <div
+            className={`relative mb-10 flex h-40 w-40 items-center justify-center rounded-full md:h-56 md:w-56 ${
+              correct
+                ? 'bg-gradient-to-br from-foam-green to-brass-gold pulse-success'
+                : 'bg-gradient-to-br from-coral-red to-hull-navy pulse-fail'
+            }`}
+            style={{
+              boxShadow: correct
+                ? '0 0 0 12px rgba(61,178,125,0.12), 0 40px 80px -20px rgba(61,178,125,0.4)'
+                : '0 0 0 12px rgba(217,83,79,0.12), 0 40px 80px -20px rgba(217,83,79,0.4)',
+            }}
+          >
+            <div className="flex h-32 w-32 items-center justify-center rounded-full border-4 border-deep-sea bg-deep-sea/80 backdrop-blur md:h-44 md:w-44">
+              <span className="text-6xl md:text-8xl">{correct ? '⚓' : '⛵'}</span>
+            </div>
           </div>
-        )}
 
-        {seconds && (
-          <div className="mt-6 font-mono text-xs text-anchor-steel">
-            Answered in {seconds}s
+          <span className="eyebrow">{correct ? 'Result · Correct' : 'Result · Incorrect'}</span>
+
+          <h1
+            className={`display-xl mt-4 ${
+              correct ? 'text-foam-green' : 'text-coral-red'
+            }`}
+          >
+            {correct ? 'Hooray!' : 'Rough seas'}
+          </h1>
+          <p className="lede mx-auto mt-4 text-xl">{data.headline}</p>
+          <p className="mx-auto mt-4 max-w-xl text-base text-sail-white/80">
+            {data.body}
+          </p>
+
+          {data.correctOption && (
+            <div className="alert-info mt-8 w-full max-w-xl text-left">
+              <div className="eyebrow mb-1 text-blueprint-cyan">Correct answer</div>
+              <div className="text-lg text-sail-white">{data.correctOption.text}</div>
+            </div>
+          )}
+
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-6 text-sm text-anchor-steel">
+            {seconds && (
+              <Stat
+                label="Time taken"
+                value={`${seconds}s`}
+              />
+            )}
+            <Stat
+              label="Attempts"
+              value="1 of 1"
+            />
+            <Stat label="Result" value={correct ? 'Pass' : 'Fail'} />
           </div>
-        )}
 
-        <div className="mt-8">
-          <Link href="/" className="btn-secondary">
-            Done
-          </Link>
+          <div className="mt-12 flex flex-wrap justify-center gap-4">
+            <Link href="/" className="btn-secondary">
+              Return to shore
+            </Link>
+          </div>
         </div>
-      </div>
-    </MarineFrame>
+      </section>
+    </Shell>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col items-center">
+      <span className="eyebrow">{label}</span>
+      <span className="mt-1 font-display text-xl text-sail-white">{value}</span>
+    </div>
   );
 }

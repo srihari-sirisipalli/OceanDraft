@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MarineFrame } from '@/components/MarineFrame';
+import { Shell } from '@/components/Shell';
 import { api, type ApiError } from '@/lib/api';
 
 export default function CaptchaPage() {
@@ -22,7 +22,6 @@ export default function CaptchaPage() {
       setError((err as ApiError).message);
     }
   }
-
   useEffect(() => {
     load();
   }, []);
@@ -48,28 +47,36 @@ export default function CaptchaPage() {
   }
 
   return (
-    <MarineFrame
-      title="Quick check"
-      subtitle="A brief challenge to make sure you're human before we lower the gangway."
-    >
-      <form onSubmit={onSubmit} className="card space-y-5">
-        <div className="text-center">
-          <div className="font-display text-2xl">{prompt}</div>
+    <Shell>
+      <section className="shell-hero py-16 md:py-28">
+        <div className="mx-auto w-full max-w-xl text-center">
+          <span className="eyebrow">Human verification</span>
+          <h1 className="display-lg mt-4">Quick check before boarding</h1>
+          <p className="lede mx-auto mt-4">
+            Solve this to confirm you're a human — not a rogue bot scraping the
+            harbour.
+          </p>
+          <form onSubmit={onSubmit} className="panel mt-10 space-y-6">
+            <div className="rounded-xl border border-blueprint-cyan/20 bg-deep-sea/60 p-8">
+              <div className="eyebrow mb-2">Challenge</div>
+              <div className="display-md">{prompt}</div>
+            </div>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+              className="input-xl text-center"
+              required
+              placeholder="Your answer"
+            />
+            {error && <div className="alert-error">{error}</div>}
+            <button type="submit" disabled={loading} className="btn-primary w-full">
+              {loading ? 'Checking…' : 'Continue →'}
+            </button>
+          </form>
         </div>
-        <input
-          type="text"
-          inputMode="numeric"
-          value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
-          className="input text-center"
-          required
-          placeholder="Your answer"
-        />
-        {error && <div className="rounded bg-coral-red/20 p-3 text-sm text-coral-red">{error}</div>}
-        <button type="submit" disabled={loading} className="btn-primary w-full">
-          {loading ? 'Checking…' : 'Continue'}
-        </button>
-      </form>
-    </MarineFrame>
+      </section>
+    </Shell>
   );
 }
