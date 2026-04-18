@@ -263,7 +263,7 @@ async function main() {
     { key: 'captcha.type', value: 'ARITHMETIC', type: 'enum' },
     { key: 'attempt.policy', value: 'UNLIMITED', type: 'enum' },
     { key: 'event.kiosk_mode', value: true, type: 'bool' },
-    { key: 'event.collect_mobile', value: false, type: 'bool' },
+    { key: 'event.collect_mobile', value: true, type: 'bool' },
     { key: 'event.auto_reset_seconds', value: 10, type: 'int' },
     { key: 'event.booth_name', value: 'OceanDraft · Event booth', type: 'string' },
     { key: 'assignment.mode', value: 'RANDOM_ACTIVE', type: 'enum' },
