@@ -13,6 +13,7 @@ export type PublicSettings = {
   branding: { productName: string };
   captcha: { enabled: boolean };
   result: { revealCorrectOnFail: boolean };
+  privacy: { policyUrl: string };
 };
 
 const FALLBACK: PublicSettings = {
@@ -25,6 +26,7 @@ const FALLBACK: PublicSettings = {
   branding: { productName: 'OceanDraft' },
   captcha: { enabled: false },
   result: { revealCorrectOnFail: false },
+  privacy: { policyUrl: '/privacy' },
 };
 
 export function usePublicSettings(): PublicSettings | null {

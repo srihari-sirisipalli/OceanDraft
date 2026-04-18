@@ -26,7 +26,10 @@ export default function LandingPage() {
   }
 
   return settings.event.collectMobile ? (
-    <MobileGate onReady={router.push} />
+    <MobileGate
+      onReady={router.push}
+      privacyUrl={settings.privacy.policyUrl}
+    />
   ) : (
     <KioskGate onReady={router.push} boothName={settings.event.boothName} />
   );
@@ -103,7 +106,13 @@ function KioskGate({
 
 /* -------- Mobile + OTP flow (admin-enabled) -------- */
 
-function MobileGate({ onReady }: { onReady: (href: string) => void }) {
+function MobileGate({
+  onReady,
+  privacyUrl,
+}: {
+  onReady: (href: string) => void;
+  privacyUrl: string;
+}) {
   const [country, setCountry] = useState('+91');
   const [mobile, setMobile] = useState('');
   const [consent, setConsent] = useState(false);
@@ -221,7 +230,12 @@ function MobileGate({ onReady }: { onReady: (href: string) => void }) {
               <span>
                 I consent to receive a one-time SMS code and to the processing
                 of my mobile number per the{' '}
-                <a href="#" className="text-blueprint-cyan underline">
+                <a
+                  href={privacyUrl}
+                  target={privacyUrl.startsWith('http') ? '_blank' : undefined}
+                  rel="noopener noreferrer"
+                  className="text-blueprint-cyan underline"
+                >
                   privacy notice
                 </a>
                 .

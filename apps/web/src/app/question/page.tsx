@@ -93,27 +93,16 @@ export default function QuestionPage() {
     }
   }
 
-  if (!data) {
-    return (
-      <Shell>
-        <section className="shell-hero py-24">
-          <div className="mx-auto max-w-lg text-center">
-            <div className="shimmer mx-auto h-3 w-40 rounded-full" />
-            <h1 className="display-lg mt-8">Charting your question…</h1>
-            <p className="lede mx-auto mt-4">Plotting a course through the pool.</p>
-          </div>
-        </section>
-      </Shell>
-    );
-  }
-
-  const seconds = Math.max(0, Math.floor((now - shownAt) / 1000));
-  const limit = data.timeLimitSeconds ?? null;
+  const seconds = data
+    ? Math.max(0, Math.floor((now - shownAt) / 1000))
+    : 0;
+  const limit = data?.timeLimitSeconds ?? null;
   const remaining = limit != null ? Math.max(0, limit - seconds) : null;
-  const timesUp = remaining === 0 && limit != null;
+  const timesUp = remaining === 0 && limit != null && !!data;
   const lowTime = remaining != null && remaining <= 10 && remaining > 0;
 
   // Auto-submit / auto-expire when the countdown hits zero.
+  // Declared unconditionally so hook order stays stable across renders.
   useEffect(() => {
     if (!timesUp || !data) return;
     (async () => {
@@ -146,6 +135,20 @@ export default function QuestionPage() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timesUp]);
+
+  if (!data) {
+    return (
+      <Shell>
+        <section className="shell-hero py-24">
+          <div className="mx-auto max-w-lg text-center">
+            <div className="shimmer mx-auto h-3 w-40 rounded-full" />
+            <h1 className="display-lg mt-8">Charting your question…</h1>
+            <p className="lede mx-auto mt-4">Plotting a course through the pool.</p>
+          </div>
+        </section>
+      </Shell>
+    );
+  }
 
   return (
     <Shell>
