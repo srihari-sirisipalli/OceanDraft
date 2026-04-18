@@ -17,14 +17,21 @@ type Row = {
 export default function AdminAttemptsPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [err, setErr] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'CORRECT' | 'WRONG'>('ALL');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [resetMobile, setResetMobile] = useState('');
+  const [resetReason, setResetReason] = useState('');
+  const [resetting, setResetting] = useState(false);
 
   async function load() {
+    const params = new URLSearchParams({ page: '1', pageSize: '200' });
+    if (filter !== 'ALL') params.set('result', filter);
+    if (from) params.set('from', new Date(from).toISOString());
+    if (to) params.set('to', new Date(to).toISOString());
     try {
-      const suffix = filter === 'ALL' ? '' : `&result=${filter}`;
-      const r = await api<{ rows: Row[] }>(
-        `/admin/attempts?page=1&pageSize=200${suffix}`,
-      );
+      const r = await api<{ rows: Row[] }>(`/admin/attempts?${params}`);
       setRows(r.rows);
     } catch (e) {
       setErr((e as ApiError).message);
@@ -36,9 +43,40 @@ export default function AdminAttemptsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
-  function exportCsv() {
-    const suffix = filter === 'ALL' ? '' : `?result=${filter}`;
-    window.location.href = `/api/v1/admin/attempts/export${suffix}`;
+  function exportFile(format: 'csv' | 'xlsx') {
+    const params = new URLSearchParams({ format });
+    if (filter !== 'ALL') params.set('result', filter);
+    if (from) params.set('from', new Date(from).toISOString());
+    if (to) params.set('to', new Date(to).toISOString());
+    window.location.href = `/api/v1/admin/attempts/export?${params}`;
+  }
+
+  async function doReset(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    setInfo(null);
+    if (!resetMobile.trim() || !resetReason.trim()) {
+      setErr('Mobile and reason required.');
+      return;
+    }
+    setResetting(true);
+    try {
+      const r = await api<{ mobile: string; resetCount: number }>(
+        '/admin/attempts/reset',
+        {
+          method: 'POST',
+          body: JSON.stringify({ mobile: resetMobile.trim(), reason: resetReason.trim() }),
+        },
+      );
+      setInfo(`Reset ${r.resetCount} attempt(s) for ${r.mobile}.`);
+      setResetMobile('');
+      setResetReason('');
+      load();
+    } catch (e) {
+      setErr((e as ApiError).message);
+    } finally {
+      setResetting(false);
+    }
   }
 
   return (
@@ -58,13 +96,64 @@ export default function AdminAttemptsPage() {
             <option value="CORRECT">Correct only</option>
             <option value="WRONG">Wrong only</option>
           </select>
-          <button onClick={exportCsv} className="btn-secondary">
-            ⇣ Export CSV
+          <input
+            type="date"
+            className="input max-w-xs"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            placeholder="From"
+          />
+          <input
+            type="date"
+            className="input max-w-xs"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            placeholder="To"
+          />
+          <button onClick={load} className="btn-secondary">
+            Apply
+          </button>
+          <button onClick={() => exportFile('csv')} className="btn-secondary">
+            ⇣ CSV
+          </button>
+          <button onClick={() => exportFile('xlsx')} className="btn-secondary">
+            ⇣ Excel
           </button>
         </div>
       </div>
 
       {err && <div className="alert-error">{err}</div>}
+      {info && <div className="alert-success">{info}</div>}
+
+      <form onSubmit={doReset} className="panel-sm grid grid-cols-1 gap-3 md:grid-cols-4">
+        <div>
+          <label className="label">Reset attempts for mobile</label>
+          <input
+            value={resetMobile}
+            onChange={(e) => setResetMobile(e.target.value)}
+            className="input"
+            placeholder="+919876543210"
+          />
+        </div>
+        <div className="md:col-span-2">
+          <label className="label">Reason (audited)</label>
+          <input
+            value={resetReason}
+            onChange={(e) => setResetReason(e.target.value)}
+            className="input"
+            placeholder="Candidate requested re-attempt after tech issue"
+          />
+        </div>
+        <div className="flex items-end">
+          <button
+            type="submit"
+            disabled={resetting}
+            className="btn-primary w-full"
+          >
+            {resetting ? 'Resetting…' : 'Reset'}
+          </button>
+        </div>
+      </form>
 
       <div className="panel overflow-x-auto">
         <table className="tbl">

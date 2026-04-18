@@ -1,18 +1,24 @@
 import {
+  BadRequestException,
+  Body,
   Controller,
   Get,
+  NotFoundException,
   Param,
+  Post,
   Query,
   Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
+import ExcelJS from 'exceljs';
 import { AdminGuard, AdminRoles, type AdminReq } from '../auth/admin.guard';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { maskMobile } from '../../common/utils/mobile';
+import { RedisService } from '../../common/redis/redis.service';
+import { maskMobile, normalizeMobile } from '../../common/utils/mobile';
 import { AuditService } from '../../audit/audit.service';
 
 class ListQuery {
@@ -21,8 +27,14 @@ class ListQuery {
   @IsOptional() @IsString() categoryId?: string;
   @IsOptional() @IsString() from?: string;
   @IsOptional() @IsString() to?: string;
+  @IsOptional() @IsString() format?: 'csv' | 'xlsx';
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number = 1;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) pageSize?: number = 20;
+}
+
+class ResetAttemptsDto {
+  @IsString() @IsNotEmpty() mobile!: string;
+  @IsString() @IsNotEmpty() reason!: string;
 }
 
 @UseGuards(AdminGuard)
@@ -31,6 +43,7 @@ class ListQuery {
 export class AdminAttemptController {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
     private readonly audit: AuditService,
   ) {}
 
@@ -85,7 +98,7 @@ export class AdminAttemptController {
   }
 
   @Get('export')
-  async exportCsv(
+  async exportAttempts(
     @Query() q: ListQuery,
     @Res() res: Response,
     @Req() req: AdminReq,
@@ -101,6 +114,66 @@ export class AdminAttemptController {
       orderBy: { answerSubmittedAt: 'desc' },
       take: 50_000,
     });
+
+    await this.audit.record({
+      actorId: req.admin!.sub,
+      actorType: 'ADMIN',
+      action: `export.attempts.${q.format ?? 'csv'}`,
+      entityType: 'Export',
+      after: { rows: rows.length, filters: q },
+    });
+
+    const baseName = `oceandraft-attempts-${new Date().toISOString().slice(0, 10)}`;
+
+    if (q.format === 'xlsx') {
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'OceanDraft';
+      wb.created = new Date();
+      const ws = wb.addWorksheet('Attempts');
+      ws.columns = [
+        { header: 'Attempt ID', key: 'id', width: 28 },
+        { header: 'Masked Mobile', key: 'mobile', width: 16 },
+        { header: 'Country', key: 'cc', width: 8 },
+        { header: 'Category', key: 'category', width: 20 },
+        { header: 'Question', key: 'question', width: 40 },
+        { header: 'Selected option', key: 'option', width: 40 },
+        { header: 'Result', key: 'result', width: 10 },
+        { header: 'Time (ms)', key: 'ms', width: 10 },
+        { header: 'Shown at', key: 'shown', width: 22 },
+        { header: 'Submitted at', key: 'submitted', width: 22 },
+        { header: 'IP', key: 'ip', width: 16 },
+      ];
+      ws.getRow(1).font = { bold: true };
+      ws.getRow(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF0B2540' },
+      };
+      ws.getRow(1).font = { bold: true, color: { argb: 'FFF4F7FA' } };
+      for (const r of rows) {
+        ws.addRow({
+          id: r.id,
+          mobile: maskMobile(r.candidate.mobileE164),
+          cc: r.candidate.countryCode,
+          category: r.question.category.name,
+          question: r.question.title,
+          option: r.selectedOption?.textMarkdown ?? '',
+          result: r.isCorrect ? 'CORRECT' : 'WRONG',
+          ms: r.timeTakenMs ?? '',
+          shown: r.questionShownAt?.toISOString() ?? '',
+          submitted: r.answerSubmittedAt?.toISOString() ?? '',
+          ip: r.ip ?? '',
+        });
+      }
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader('Content-Disposition', `attachment; filename="${baseName}.xlsx"`);
+      await wb.xlsx.write(res);
+      res.end();
+      return;
+    }
 
     const header = [
       'attempt_id',
@@ -141,19 +214,44 @@ export class AdminAttemptController {
           .join(','),
       );
     }
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${baseName}.csv"`);
+    res.send(lines.join('\n'));
+  }
+
+  @Post('reset')
+  @AdminRoles('ADMIN', 'SUPER_ADMIN')
+  async reset(@Body() dto: ResetAttemptsDto, @Req() req: AdminReq) {
+    const e164 = normalizeMobile(dto.mobile);
+    if (!e164) throw new BadRequestException({ code: 'MOBILE_INVALID' });
+
+    const candidate = await this.prisma.candidate.findUnique({
+      where: { mobileE164: e164 },
+    });
+    if (!candidate) throw new NotFoundException({ code: 'CANDIDATE_NOT_FOUND' });
+
+    const updated = await this.prisma.attempt.updateMany({
+      where: { candidateId: candidate.id, status: { in: ['SUBMITTED', 'IN_PROGRESS'] } },
+      data: { status: 'ABANDONED' },
+    });
+
+    await this.redis.del(`otp:send:${e164}`);
+    await this.redis.del(`otp:cooldown:${e164}`);
 
     await this.audit.record({
       actorId: req.admin!.sub,
       actorType: 'ADMIN',
-      action: 'export.attempts.csv',
-      entityType: 'Export',
-      after: { rows: rows.length, filters: q },
+      action: 'attempts.reset',
+      entityType: 'Candidate',
+      entityId: candidate.id,
+      after: { mobile: e164, reason: dto.reason, resetCount: updated.count },
     });
 
-    const filename = `oceandraft-attempts-${new Date().toISOString().slice(0, 10)}.csv`;
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(lines.join('\n'));
+    return {
+      ok: true,
+      mobile: maskMobile(e164),
+      resetCount: updated.count,
+    };
   }
 
   @Get(':id')

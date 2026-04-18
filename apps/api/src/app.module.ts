@@ -24,6 +24,8 @@ import { AdminAttemptModule } from './admin/attempt/admin-attempt.module';
 import { AdminSettingsModule } from './admin/settings/admin-settings.module';
 import { AdminMediaModule } from './admin/media/admin-media.module';
 import { AdminUserModule } from './admin/user/admin-user.module';
+import { AdminReportModule } from './admin/report/admin-report.module';
+import { AdminTemplateModule } from './admin/template/admin-template.module';
 
 @Module({
   imports: [
@@ -55,6 +57,8 @@ import { AdminUserModule } from './admin/user/admin-user.module';
     AdminSettingsModule,
     AdminMediaModule,
     AdminUserModule,
+    AdminReportModule,
+    AdminTemplateModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
