@@ -38,6 +38,7 @@ class CreateQuestionDto {
   @IsString() @IsNotEmpty() stemMarkdown!: string;
   @IsString() @IsNotEmpty() categoryId!: string;
   @IsEnum(['TEXT', 'IMAGE', 'MIXED']) @IsOptional() type?: 'TEXT' | 'IMAGE' | 'MIXED';
+  @IsEnum(['SINGLE', 'MULTI']) @IsOptional() answerType?: 'SINGLE' | 'MULTI';
   @IsEnum(['EASY', 'MEDIUM', 'HARD']) @IsOptional() difficulty?: 'EASY' | 'MEDIUM' | 'HARD';
   @IsString() @IsOptional() primaryMediaId?: string;
   @IsBoolean() @IsOptional() isActive?: boolean;
@@ -52,6 +53,7 @@ class UpdateQuestionDto {
   @IsString() @IsOptional() stemMarkdown?: string;
   @IsString() @IsOptional() categoryId?: string;
   @IsEnum(['TEXT', 'IMAGE', 'MIXED']) @IsOptional() type?: 'TEXT' | 'IMAGE' | 'MIXED';
+  @IsEnum(['SINGLE', 'MULTI']) @IsOptional() answerType?: 'SINGLE' | 'MULTI';
   @IsEnum(['EASY', 'MEDIUM', 'HARD']) @IsOptional() difficulty?: 'EASY' | 'MEDIUM' | 'HARD';
   @IsString() @IsOptional() primaryMediaId?: string;
   @IsBoolean() @IsOptional() isActive?: boolean;
@@ -78,10 +80,16 @@ export class AdminQuestionController {
     private readonly audit: AuditService,
   ) {}
 
-  private ensureOneCorrect(options: OptionDto[]) {
+  private validateOptions(
+    options: OptionDto[],
+    answerType: 'SINGLE' | 'MULTI' = 'SINGLE',
+  ) {
     const correct = options.filter((o) => o.isCorrect).length;
-    if (correct !== 1) {
-      throw new Error('Exactly one option must be marked correct.');
+    if (answerType === 'SINGLE' && correct !== 1) {
+      throw new Error('Single-select questions require exactly one correct option.');
+    }
+    if (answerType === 'MULTI' && correct < 1) {
+      throw new Error('Multi-select questions require at least one correct option.');
     }
   }
 
@@ -136,7 +144,7 @@ export class AdminQuestionController {
 
   @Post()
   async create(@Body() dto: CreateQuestionDto, @Req() req: AdminReq) {
-    this.ensureOneCorrect(dto.options);
+    this.validateOptions(dto.options, dto.answerType ?? 'SINGLE');
 
     // Allocate a fresh ticket number = max + 1.
     const maxTicket =
@@ -150,6 +158,7 @@ export class AdminQuestionController {
         stemMarkdown: dto.stemMarkdown,
         categoryId: dto.categoryId,
         type: dto.type ?? 'TEXT',
+        answerType: dto.answerType ?? 'SINGLE',
         difficulty: dto.difficulty ?? 'MEDIUM',
         primaryMediaId: dto.primaryMediaId,
         isActive: dto.isActive ?? true,
@@ -188,7 +197,10 @@ export class AdminQuestionController {
       where: { id },
       include: { options: true },
     });
-    if (dto.options) this.ensureOneCorrect(dto.options);
+    if (dto.options) {
+      const at = dto.answerType ?? before?.answerType ?? 'SINGLE';
+      this.validateOptions(dto.options, at);
+    }
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const q = await tx.question.update({
@@ -198,6 +210,7 @@ export class AdminQuestionController {
           stemMarkdown: dto.stemMarkdown,
           categoryId: dto.categoryId,
           type: dto.type,
+          answerType: dto.answerType,
           difficulty: dto.difficulty,
           primaryMediaId: dto.primaryMediaId,
           isActive: dto.isActive,

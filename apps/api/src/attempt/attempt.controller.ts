@@ -18,6 +18,7 @@ export class AttemptController {
       sessionId: req.candidateSession!.sessionId,
       attemptId: dto.attemptId,
       optionId: dto.optionId,
+      optionIds: dto.optionIds,
       clientNonce: dto.clientNonce,
     });
   }

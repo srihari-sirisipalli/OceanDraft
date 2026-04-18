@@ -15,7 +15,8 @@ export class AttemptService {
     candidateId: string;
     sessionId: string;
     attemptId: string;
-    optionId: string;
+    optionId?: string;
+    optionIds?: string[];
     clientNonce: string;
   }) {
     // Nonce replay check
@@ -42,15 +43,44 @@ export class AttemptService {
       });
     }
 
-    const option = attempt.question.options.find((o) => o.id === params.optionId);
-    if (!option) throw new BadRequestException({ code: 'OPTION_INVALID' });
+    const isMulti = attempt.question.answerType === 'MULTI';
+    const selectedIds = isMulti
+      ? (params.optionIds ?? (params.optionId ? [params.optionId] : []))
+      : params.optionId
+        ? [params.optionId]
+        : (params.optionIds ?? []).slice(0, 1);
+
+    if (selectedIds.length === 0) {
+      throw new BadRequestException({ code: 'SELECTION_REQUIRED' });
+    }
+
+    const selectedOptions = attempt.question.options.filter((o) =>
+      selectedIds.includes(o.id),
+    );
+    if (selectedOptions.length !== selectedIds.length) {
+      throw new BadRequestException({ code: 'OPTION_INVALID' });
+    }
 
     const shownAt = attempt.questionShownAt ?? attempt.startedAt;
     const submittedAt = new Date();
     const timeTakenMs = submittedAt.getTime() - shownAt.getTime();
-    const isCorrect = option.isCorrect;
 
-    // Look for a per-category override first, e.g. HOORAY_CAT_ship-stability.
+    // Correctness: SINGLE = the single pick is isCorrect; MULTI = selected set
+    // equals the correct set exactly (all-and-only).
+    let isCorrect: boolean;
+    if (isMulti) {
+      const correctIds = new Set(
+        attempt.question.options.filter((o) => o.isCorrect).map((o) => o.id),
+      );
+      const pickedIds = new Set(selectedIds);
+      isCorrect =
+        correctIds.size === pickedIds.size &&
+        [...correctIds].every((id) => pickedIds.has(id));
+    } else {
+      isCorrect = selectedOptions[0].isCorrect;
+    }
+
+    // Template resolution (per-category override, else random pool).
     const question = await this.prisma.question.findUnique({
       where: { id: attempt.questionId },
       include: { category: true },
@@ -65,7 +95,6 @@ export class AttemptService {
       : null;
     let templateKey = override?.key ?? `${base}_DEFAULT`;
     if (!override) {
-      // Random pick from the HOORAY_* / FAIL_* pool (excluding category-specific keys).
       const poolCandidates = await this.prisma.resultTemplate.findMany({
         where: { key: { startsWith: `${base}_` }, isActive: true },
         select: { key: true },
@@ -79,7 +108,9 @@ export class AttemptService {
     const updated = await this.prisma.attempt.update({
       where: { id: attempt.id },
       data: {
-        selectedOptionId: option.id,
+        // For single: also populate the legacy selectedOptionId link.
+        selectedOptionId: isMulti ? null : selectedOptions[0].id,
+        selectedOptionIds: selectedIds,
         status: 'SUBMITTED',
         isCorrect,
         answerSubmittedAt: submittedAt,
@@ -97,8 +128,9 @@ export class AttemptService {
         contentSnapshot: {
           questionId: attempt.questionId,
           questionTitle: attempt.question.title,
-          selectedOptionId: option.id,
-          selectedOptionText: option.textMarkdown,
+          answerType: attempt.question.answerType,
+          selectedOptionIds: selectedIds,
+          selectedOptionTexts: selectedOptions.map((o) => o.textMarkdown),
           timeTakenMs,
         } as never,
       },
@@ -148,18 +180,24 @@ export class AttemptService {
     });
 
     const reveal = template?.revealCorrectOnFail ?? false;
-    const correctOption =
+    const correctOptions =
       !attempt.isCorrect && reveal
-        ? attempt.question.options.find((o) => o.isCorrect)
-        : null;
+        ? attempt.question.options.filter((o) => o.isCorrect)
+        : [];
 
     return {
       status: attempt.isCorrect ? 'CORRECT' : 'WRONG',
-      headline: template?.headline ?? (attempt.isCorrect ? 'Hooray!' : 'Not quite'),
+      headline:
+        template?.headline ?? (attempt.isCorrect ? 'Hooray!' : 'Not quite'),
       body: template?.bodyMarkdown ?? '',
-      correctOption: correctOption
-        ? { id: correctOption.id, text: correctOption.textMarkdown }
-        : null,
+      correctOption:
+        correctOptions.length === 1
+          ? { id: correctOptions[0].id, text: correctOptions[0].textMarkdown }
+          : null,
+      correctOptions: correctOptions.map((o) => ({
+        id: o.id,
+        text: o.textMarkdown,
+      })),
       timings: {
         timeTakenMs: attempt.timeTakenMs,
         questionShownAt: attempt.questionShownAt,

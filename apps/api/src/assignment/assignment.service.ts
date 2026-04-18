@@ -194,6 +194,7 @@ export class AssignmentService {
         title: attempt.question.title,
         stem: attempt.question.stemMarkdown,
         type: attempt.question.type,
+        answerType: attempt.question.answerType,
         primaryMedia: attempt.question.primaryMedia
           ? {
               id: attempt.question.primaryMedia.id,

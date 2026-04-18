@@ -24,6 +24,11 @@ enum QuestionType {
   MIXED
 }
 
+enum AnswerType {
+  SINGLE
+  MULTI
+}
+
 enum QuestionDifficulty {
   EASY
   MEDIUM
@@ -228,6 +233,7 @@ model Question {
   ticketNumber   Int?               @unique
   // Optional per-question countdown in seconds (null = untimed).
   timeLimitSeconds Int?
+  answerType     AnswerType         @default(SINGLE)
   title          String
   stemMarkdown   String
   type           QuestionType       @default(TEXT)
@@ -325,6 +331,7 @@ model Attempt {
   questionVersion     Int            @default(1)
   selectedOptionId    String?
   selectedOption      QuestionOption? @relation(fields: [selectedOptionId], references: [id])
+  selectedOptionIds   String[]        @default([])
   status              AttemptStatus  @default(IN_PROGRESS)
   isCorrect           Boolean?
   startedAt           DateTime       @default(now())

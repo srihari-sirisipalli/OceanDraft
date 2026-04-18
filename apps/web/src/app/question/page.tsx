@@ -17,6 +17,7 @@ type QuestionPayload = {
     title: string;
     stem: string;
     type: 'TEXT' | 'IMAGE' | 'MIXED';
+    answerType: 'SINGLE' | 'MULTI';
     primaryMedia: { id: string; url: string; altText: string } | null;
     options: { id: string; orderIndex: number; text: string }[];
   };
@@ -25,7 +26,7 @@ type QuestionPayload = {
 export default function QuestionPage() {
   const router = useRouter();
   const [data, setData] = useState<QuestionPayload | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [shownAt, setShownAt] = useState<number>(0);
@@ -72,24 +73,44 @@ export default function QuestionPage() {
   }, [shownAt]);
 
   async function onSubmit() {
-    if (!data || !selectedId) return;
+    if (!data || selectedIds.length === 0) return;
     setSubmitting(true);
     setError(null);
     try {
+      const isMulti = data.question.answerType === 'MULTI';
+      const payload = isMulti
+        ? {
+            attemptId: data.attemptId,
+            optionIds: selectedIds,
+            clientNonce: nonce,
+            clientStartAt: new Date(shownAt).toISOString(),
+          }
+        : {
+            attemptId: data.attemptId,
+            optionId: selectedIds[0],
+            clientNonce: nonce,
+            clientStartAt: new Date(shownAt).toISOString(),
+          };
       const r = await api<{ resultId: string }>('/attempts/submit', {
         method: 'POST',
-        body: JSON.stringify({
-          attemptId: data.attemptId,
-          optionId: selectedId,
-          clientNonce: nonce,
-          clientStartAt: new Date(shownAt).toISOString(),
-        }),
+        body: JSON.stringify(payload),
       });
       router.push(`/result/${r.resultId}`);
     } catch (err) {
       setError((err as ApiError).message ?? 'Submit failed.');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  function toggleOption(id: string) {
+    if (!data) return;
+    if (data.question.answerType === 'MULTI') {
+      setSelectedIds((prev) =>
+        prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+      );
+    } else {
+      setSelectedIds([id]);
     }
   }
 
@@ -106,16 +127,25 @@ export default function QuestionPage() {
   useEffect(() => {
     if (!timesUp || !data) return;
     (async () => {
-      if (selectedId) {
+      if (selectedIds.length > 0) {
         try {
+          const isMulti = data.question.answerType === 'MULTI';
+          const payload = isMulti
+            ? {
+                attemptId: data.attemptId,
+                optionIds: selectedIds,
+                clientNonce: nonce,
+                clientStartAt: new Date(shownAt).toISOString(),
+              }
+            : {
+                attemptId: data.attemptId,
+                optionId: selectedIds[0],
+                clientNonce: nonce,
+                clientStartAt: new Date(shownAt).toISOString(),
+              };
           const r = await api<{ resultId: string }>('/attempts/submit', {
             method: 'POST',
-            body: JSON.stringify({
-              attemptId: data.attemptId,
-              optionId: selectedId,
-              clientNonce: nonce,
-              clientStartAt: new Date(shownAt).toISOString(),
-            }),
+            body: JSON.stringify(payload),
           });
           router.push(`/result/${r.resultId}`);
           return;
@@ -213,17 +243,31 @@ export default function QuestionPage() {
               source={data.question.stem}
             />
 
+            {data.question.answerType === 'MULTI' && (
+              <div className="mb-3 rounded-md bg-brass-gold/15 px-3 py-2 text-sm text-brass-gold">
+                🗳️ Multi-select — pick <strong>all</strong> the correct options.
+              </div>
+            )}
             <div className="space-y-3">
               {data.question.options.map((o, idx) => {
-                const selected = selectedId === o.id;
+                const selected = selectedIds.includes(o.id);
+                const isMulti = data.question.answerType === 'MULTI';
                 return (
                   <label
                     key={o.id}
                     className={`option ${selected ? 'option-selected' : ''}`}
                   >
-                    <span className="option-dot">
+                    <span
+                      className={`option-dot ${
+                        isMulti ? 'rounded-md' : ''
+                      }`}
+                    >
                       {selected && (
-                        <span className="h-2.5 w-2.5 rounded-full bg-deep-sea" />
+                        <span
+                          className={`h-2.5 w-2.5 ${
+                            isMulti ? 'rounded-sm' : 'rounded-full'
+                          } bg-deep-sea`}
+                        />
                       )}
                     </span>
                     <span className="font-mono text-sm text-blueprint-cyan">
@@ -231,11 +275,11 @@ export default function QuestionPage() {
                     </span>
                     <SafeMarkdown className="flex-1" source={o.text} />
                     <input
-                      type="radio"
+                      type={isMulti ? 'checkbox' : 'radio'}
                       name="option"
                       value={o.id}
                       checked={selected}
-                      onChange={() => setSelectedId(o.id)}
+                      onChange={() => toggleOption(o.id)}
                       className="sr-only"
                     />
                   </label>
@@ -248,7 +292,7 @@ export default function QuestionPage() {
             <div className="mt-8 flex justify-end">
               <button
                 onClick={onSubmit}
-                disabled={!selectedId || submitting}
+                disabled={selectedIds.length === 0 || submitting}
                 className="btn-primary text-lg"
               >
                 {submitting ? 'Submitting…' : 'Submit Answer →'}

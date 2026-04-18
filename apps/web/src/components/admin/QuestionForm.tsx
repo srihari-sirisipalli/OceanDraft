@@ -14,6 +14,7 @@ type QuestionDraft = {
   stemMarkdown: string;
   categoryId: string;
   type: 'TEXT' | 'IMAGE' | 'MIXED';
+  answerType: 'SINGLE' | 'MULTI';
   difficulty: 'EASY' | 'MEDIUM' | 'HARD';
   isActive: boolean;
   tags: string;
@@ -26,6 +27,7 @@ const blank: QuestionDraft = {
   stemMarkdown: '',
   categoryId: '',
   type: 'TEXT',
+  answerType: 'SINGLE',
   difficulty: 'MEDIUM',
   isActive: true,
   tags: '',
@@ -75,6 +77,7 @@ export function QuestionForm({
           stemMarkdown: string;
           categoryId: string;
           type: QuestionDraft['type'];
+          answerType: QuestionDraft['answerType'];
           difficulty: QuestionDraft['difficulty'];
           isActive: boolean;
           tags: string[];
@@ -87,6 +90,7 @@ export function QuestionForm({
           stemMarkdown: q.stemMarkdown,
           categoryId: q.categoryId,
           type: q.type,
+          answerType: q.answerType ?? 'SINGLE',
           difficulty: q.difficulty,
           isActive: q.isActive,
           tags: q.tags.join(', '),
@@ -103,10 +107,20 @@ export function QuestionForm({
   }, [mode, id]);
 
   function setCorrect(i: number) {
-    setDraft((d) => ({
-      ...d,
-      options: d.options.map((o, idx) => ({ ...o, isCorrect: idx === i })),
-    }));
+    setDraft((d) => {
+      if (d.answerType === 'MULTI') {
+        return {
+          ...d,
+          options: d.options.map((o, idx) =>
+            idx === i ? { ...o, isCorrect: !o.isCorrect } : o,
+          ),
+        };
+      }
+      return {
+        ...d,
+        options: d.options.map((o, idx) => ({ ...o, isCorrect: idx === i })),
+      };
+    });
   }
   function addOption() {
     if (draft.options.length >= 6) return;
@@ -132,8 +146,13 @@ export function QuestionForm({
       setErr('All option texts are required.');
       return;
     }
-    if (draft.options.filter((o) => o.isCorrect).length !== 1) {
-      setErr('Exactly one option must be marked correct.');
+    const correctCount = draft.options.filter((o) => o.isCorrect).length;
+    if (draft.answerType === 'SINGLE' && correctCount !== 1) {
+      setErr('Single-select: exactly one option must be marked correct.');
+      return;
+    }
+    if (draft.answerType === 'MULTI' && correctCount < 1) {
+      setErr('Multi-select: at least one option must be marked correct.');
       return;
     }
     if (draft.type === 'IMAGE' && !media) {
@@ -148,6 +167,7 @@ export function QuestionForm({
         stemMarkdown: draft.stemMarkdown,
         categoryId: draft.categoryId,
         type: draft.type,
+        answerType: draft.answerType,
         difficulty: draft.difficulty,
         isActive: draft.isActive,
         primaryMediaId: media?.id ?? null,
@@ -250,8 +270,8 @@ export function QuestionForm({
               >
                 <label className="flex cursor-pointer items-center gap-2 text-sm">
                   <input
-                    type="radio"
-                    name="correct"
+                    type={draft.answerType === 'MULTI' ? 'checkbox' : 'radio'}
+                    name={draft.answerType === 'MULTI' ? `correct-${i}` : 'correct'}
                     checked={o.isCorrect}
                     onChange={() => setCorrect(i)}
                     className="h-4 w-4 accent-foam-green"
@@ -308,7 +328,7 @@ export function QuestionForm({
               </select>
             </div>
             <div>
-              <label className="label">Type</label>
+              <label className="label">Presentation</label>
               <select
                 value={draft.type}
                 onChange={(e) =>
@@ -316,10 +336,30 @@ export function QuestionForm({
                 }
                 className="input"
               >
-                <option value="TEXT">Text</option>
+                <option value="TEXT">Text only</option>
                 <option value="IMAGE">Image</option>
-                <option value="MIXED">Mixed</option>
+                <option value="MIXED">Text + image</option>
               </select>
+            </div>
+            <div>
+              <label className="label">Answer type</label>
+              <select
+                value={draft.answerType}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    answerType: e.target.value as QuestionDraft['answerType'],
+                  })
+                }
+                className="input"
+              >
+                <option value="SINGLE">Single-correct (radio)</option>
+                <option value="MULTI">Multi-select (checkboxes)</option>
+              </select>
+              <p className="helper">
+                Multi-select is correct only when the visitor picks every
+                correct option — no more, no less.
+              </p>
             </div>
             <div>
               <label className="label">Difficulty</label>

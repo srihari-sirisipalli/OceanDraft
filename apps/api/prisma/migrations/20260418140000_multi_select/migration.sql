@@ -1,0 +1,5 @@
+CREATE TYPE "AnswerType" AS ENUM ('SINGLE', 'MULTI');
+
+ALTER TABLE "Question" ADD COLUMN "answerType" "AnswerType" NOT NULL DEFAULT 'SINGLE';
+
+ALTER TABLE "Attempt" ADD COLUMN "selectedOptionIds" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
