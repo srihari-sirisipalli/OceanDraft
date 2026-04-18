@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  @apply bg-deep-sea text-sail-white font-sans;
+  min-height: 100%;
+}
+
+body {
+  background-image:
+    radial-gradient(ellipse at top, rgba(18, 58, 92, 0.95) 0%, rgba(11, 37, 64, 1) 60%),
+    linear-gradient(rgba(47, 182, 198, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(47, 182, 198, 0.06) 1px, transparent 1px);
+  background-size: auto, 32px 32px, 32px 32px;
+  background-attachment: fixed;
+}
+
+.btn-primary {
+  @apply inline-flex items-center justify-center rounded-md bg-blueprint-cyan px-5 py-3 font-medium text-deep-sea shadow-porthole transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50;
+}
+.btn-secondary {
+  @apply inline-flex items-center justify-center rounded-md border border-blueprint-cyan/50 px-5 py-3 font-medium text-blueprint-cyan transition hover:bg-blueprint-cyan/10;
+}
+.card {
+  @apply rounded-xl border border-blueprint-cyan/20 bg-hull-navy/60 p-6 backdrop-blur;
+}
+.input {
+  @apply w-full rounded-md border border-blueprint-cyan/30 bg-deep-sea/60 px-4 py-3 text-sail-white placeholder-anchor-steel focus:border-blueprint-cyan focus:outline-none;
+}
+.label {
+  @apply mb-1 block text-sm font-medium text-blueprint-cyan;
+}
+.small {
+  @apply text-sm text-anchor-steel;
+}
+.headline {
+  @apply font-display text-3xl md:text-4xl text-sail-white;
+}
+
+/* Subtle wave animation for hero areas */
+@keyframes oceanSway {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.sway { animation: oceanSway 6s ease-in-out infinite; }

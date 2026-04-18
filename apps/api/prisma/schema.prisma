@@ -1,0 +1,420 @@
+// OceanDraft Prisma schema — see OceanDraft_System_Design.md §18
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------- Enums --------------------
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  OPS
+  AUDITOR
+}
+
+enum QuestionType {
+  TEXT
+  IMAGE
+  MIXED
+}
+
+enum QuestionDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum AssignmentMode {
+  ALL_SAME
+  RANDOM_ACTIVE
+  RANDOM_BY_CATEGORY
+  MANUAL_BY_MOBILE
+  ONE_TIME_USE_POOL
+}
+
+enum AttemptPolicy {
+  SINGLE_LIFETIME
+  SINGLE_PER_DAY
+  UNLIMITED
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  EXPIRED
+  ABANDONED
+}
+
+enum OtpStatus {
+  ACTIVE
+  EXPIRED
+  CONSUMED
+  LOCKED
+}
+
+enum OtpDeliveryStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+}
+
+enum MediaRole {
+  PRIMARY
+  OPTION
+  SUPPORT
+  RESULT
+}
+
+enum ExportStatus {
+  QUEUED
+  RUNNING
+  DONE
+  FAILED
+}
+
+enum ExportFormat {
+  CSV
+  XLSX
+}
+
+enum AuditActorType {
+  ADMIN
+  SYSTEM
+  CANDIDATE
+}
+
+// -------------------- Admin & RBAC --------------------
+
+model AdminUser {
+  id             String   @id @default(cuid())
+  username       String   @unique
+  email          String   @unique
+  passwordHash   String
+  mfaSecret      String?
+  isActive       Boolean  @default(true)
+  lastLoginAt    DateTime?
+  roles          AdminUserRole[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  createdQuestions Question[] @relation("QuestionCreatedBy")
+  auditLogs        AuditLog[]
+  exports          Export[]
+  assignments      CandidateQuestionAssignment[]
+}
+
+model Role {
+  id          String     @id @default(cuid())
+  name        AdminRole  @unique
+  description String?
+  users       AdminUserRole[]
+  permissions RolePermission[]
+  createdAt   DateTime   @default(now())
+}
+
+model Permission {
+  id      String @id @default(cuid())
+  key     String @unique // e.g. "question:create"
+  roles   RolePermission[]
+}
+
+model AdminUserRole {
+  adminUserId String
+  roleId      String
+  adminUser   AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+  role        Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([adminUserId, roleId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+// -------------------- Candidate --------------------
+
+model Candidate {
+  id            String   @id @default(cuid())
+  mobileE164    String   @unique
+  countryCode   String   @default("IN")
+  consentAt     DateTime?
+  consentIp     String?
+  firstSeenAt   DateTime @default(now())
+  lastSeenAt    DateTime @default(now())
+  isBlocked     Boolean  @default(false)
+  notes         String?
+
+  otpRequests      OtpRequest[]
+  sessions         CandidateSession[]
+  attempts         Attempt[]
+  assignments      CandidateQuestionAssignment[]
+
+  @@index([lastSeenAt])
+}
+
+model OtpRequest {
+  id               String            @id @default(cuid())
+  candidateId      String
+  candidate        Candidate         @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  otpHash          String
+  otpSalt          String
+  // Dev-mode only: plaintext to aid local testing. NEVER populated when OTP_DEV_MODE=false.
+  devOtpPlaintext  String?
+  generatedAt      DateTime          @default(now())
+  expiresAt        DateTime
+  verifyAttempts   Int               @default(0)
+  maxVerifyAttempts Int              @default(5)
+  resendCount      Int               @default(0)
+  deliveryStatus   OtpDeliveryStatus @default(PENDING)
+  provider         String            @default("dev")
+  providerMessageId String?
+  ip               String?
+  ua               String?
+  status           OtpStatus         @default(ACTIVE)
+
+  smsLogs          SmsProviderLog[]
+
+  @@index([candidateId, status])
+  @@index([expiresAt])
+}
+
+model CandidateSession {
+  id                 String   @id @default(cuid())
+  candidateId        String
+  candidate          Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  sessionTokenHash   String   @unique
+  issuedAt           DateTime @default(now())
+  expiresAt          DateTime
+  captchaVerified    Boolean  @default(false)
+  ip                 String?
+  ua                 String?
+
+  attempts           Attempt[]
+
+  @@index([expiresAt])
+}
+
+// -------------------- Questions --------------------
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  parentId    String?
+  parent      Category?  @relation("CategoryParent", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryParent")
+  isActive    Boolean  @default(true)
+  questions   Question[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Question {
+  id             String             @id @default(cuid())
+  title          String
+  stemMarkdown   String
+  type           QuestionType       @default(TEXT)
+  difficulty     QuestionDifficulty @default(MEDIUM)
+  categoryId     String
+  category       Category           @relation(fields: [categoryId], references: [id])
+  primaryMediaId String?
+  primaryMedia   MediaAsset?        @relation("QuestionPrimaryMedia", fields: [primaryMediaId], references: [id])
+  isActive       Boolean            @default(true)
+  version        Int                @default(1)
+  tags           String[]           @default([])
+  createdById    String?
+  createdBy      AdminUser?         @relation("QuestionCreatedBy", fields: [createdById], references: [id])
+  options        QuestionOption[]
+  mediaLinks     QuestionMedia[]
+  attempts       Attempt[]
+  assignments    CandidateQuestionAssignment[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([isActive, categoryId])
+  @@index([createdAt])
+}
+
+model QuestionOption {
+  id           String       @id @default(cuid())
+  questionId   String
+  question     Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  orderIndex   Int
+  textMarkdown String
+  mediaId      String?
+  media        MediaAsset?  @relation("OptionMedia", fields: [mediaId], references: [id])
+  isCorrect    Boolean      @default(false)
+  attempts     Attempt[]
+  createdAt    DateTime     @default(now())
+
+  @@unique([questionId, orderIndex])
+}
+
+model QuestionMedia {
+  id         String      @id @default(cuid())
+  questionId String
+  question   Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  mediaId    String
+  media      MediaAsset  @relation("QuestionMediaAsset", fields: [mediaId], references: [id])
+  role       MediaRole   @default(SUPPORT)
+  createdAt  DateTime    @default(now())
+}
+
+model MediaAsset {
+  id             String   @id @default(cuid())
+  storageKey     String   @unique
+  originalName   String
+  mimeType       String
+  sizeBytes      Int
+  width          Int?
+  height         Int?
+  checksumSha256 String?
+  altText        String?
+  isDeleted      Boolean  @default(false)
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  primaryForQuestions Question[]      @relation("QuestionPrimaryMedia")
+  optionMediaFor      QuestionOption[] @relation("OptionMedia")
+  questionMedia       QuestionMedia[] @relation("QuestionMediaAsset")
+}
+
+// -------------------- Assignment & Attempts --------------------
+
+model CandidateQuestionAssignment {
+  id           String          @id @default(cuid())
+  candidateId  String
+  candidate    Candidate       @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  questionId   String
+  question     Question        @relation(fields: [questionId], references: [id])
+  assignedAt   DateTime        @default(now())
+  mode         AssignmentMode
+  assignedById String?
+  assignedBy   AdminUser?      @relation(fields: [assignedById], references: [id])
+  active       Boolean         @default(true)
+
+  @@index([candidateId, active])
+}
+
+model Attempt {
+  id                  String         @id @default(cuid())
+  candidateId         String
+  candidate           Candidate      @relation(fields: [candidateId], references: [id])
+  sessionId           String
+  session             CandidateSession @relation(fields: [sessionId], references: [id])
+  questionId          String
+  question            Question       @relation(fields: [questionId], references: [id])
+  questionVersion     Int            @default(1)
+  selectedOptionId    String?
+  selectedOption      QuestionOption? @relation(fields: [selectedOptionId], references: [id])
+  status              AttemptStatus  @default(IN_PROGRESS)
+  isCorrect           Boolean?
+  startedAt           DateTime       @default(now())
+  questionShownAt     DateTime?
+  answerSubmittedAt   DateTime?
+  timeTakenMs         Int?
+  captchaTimeMs       Int?
+  clientNonce         String?        @unique
+  ip                  String?
+  ua                  String?
+  resultTemplateUsed  String?
+  resultRecord        ResultRecord?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([candidateId, status])
+  @@index([startedAt])
+  @@index([questionId])
+}
+
+model ResultRecord {
+  id               String   @id @default(cuid())
+  attemptId        String   @unique
+  attempt          Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  pass             Boolean
+  templateKey      String
+  contentSnapshot  Json
+  createdAt        DateTime @default(now())
+}
+
+model ResultTemplate {
+  id                    String   @id @default(cuid())
+  key                   String   @unique // HOORAY_DEFAULT, FAIL_DEFAULT, ...
+  headline              String
+  bodyMarkdown          String
+  mediaId               String?
+  revealCorrectOnFail   Boolean  @default(false)
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// -------------------- Settings, Audit, Exports, SMS --------------------
+
+model AppSetting {
+  key        String   @id
+  valueJson  Json
+  type       String
+  updatedBy  String?
+  updatedAt  DateTime @updatedAt
+}
+
+model AuditLog {
+  id            String         @id @default(cuid())
+  actorId       String?
+  actor         AdminUser?     @relation(fields: [actorId], references: [id])
+  actorType     AuditActorType
+  action        String
+  entityType    String
+  entityId      String?
+  beforeJson    Json?
+  afterJson     Json?
+  ip            String?
+  ua            String?
+  correlationId String?
+  createdAt     DateTime       @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+}
+
+model Export {
+  id           String       @id @default(cuid())
+  requestedById String
+  requestedBy  AdminUser    @relation(fields: [requestedById], references: [id])
+  reportType   String
+  filtersJson  Json
+  format       ExportFormat
+  status       ExportStatus @default(QUEUED)
+  fileKey      String?
+  rowsCount    Int?
+  error        String?
+  createdAt    DateTime     @default(now())
+  completedAt  DateTime?
+}
+
+model SmsProviderLog {
+  id                String    @id @default(cuid())
+  otpRequestId      String
+  otpRequest        OtpRequest @relation(fields: [otpRequestId], references: [id], onDelete: Cascade)
+  provider          String
+  requestPayloadJson Json
+  responsePayloadJson Json?
+  status            String
+  latencyMs         Int?
+  createdAt         DateTime  @default(now())
+}
