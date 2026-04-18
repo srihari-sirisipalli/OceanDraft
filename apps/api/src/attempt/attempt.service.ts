@@ -108,6 +108,23 @@ export class AttemptService {
     return { resultId: updated.id };
   }
 
+  async expire(params: { candidateId: string; attemptId: string }) {
+    const attempt = await this.prisma.attempt.findUnique({
+      where: { id: params.attemptId },
+    });
+    if (!attempt) throw new NotFoundException({ code: 'ATTEMPT_NOT_FOUND' });
+    if (attempt.candidateId !== params.candidateId) {
+      throw new BadRequestException({ code: 'ATTEMPT_OWNERSHIP_MISMATCH' });
+    }
+    if (attempt.status === 'IN_PROGRESS') {
+      await this.prisma.attempt.update({
+        where: { id: attempt.id },
+        data: { status: 'EXPIRED', answerSubmittedAt: new Date() },
+      });
+    }
+    return { ok: true };
+  }
+
   async result(params: { candidateId: string; attemptId: string }) {
     const attempt = await this.prisma.attempt.findUnique({
       where: { id: params.attemptId },

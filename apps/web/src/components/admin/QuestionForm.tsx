@@ -17,6 +17,7 @@ type QuestionDraft = {
   difficulty: 'EASY' | 'MEDIUM' | 'HARD';
   isActive: boolean;
   tags: string;
+  timeLimitSeconds: number | null;
   options: OptionDraft[];
 };
 
@@ -28,6 +29,7 @@ const blank: QuestionDraft = {
   difficulty: 'MEDIUM',
   isActive: true,
   tags: '',
+  timeLimitSeconds: null,
   options: [
     { text: '', isCorrect: true },
     { text: '', isCorrect: false },
@@ -76,6 +78,7 @@ export function QuestionForm({
           difficulty: QuestionDraft['difficulty'];
           isActive: boolean;
           tags: string[];
+          timeLimitSeconds: number | null;
           options: { textMarkdown: string; isCorrect: boolean; orderIndex: number }[];
           primaryMedia: MediaItem | null;
         }>(`/admin/questions/${id}`);
@@ -87,6 +90,7 @@ export function QuestionForm({
           difficulty: q.difficulty,
           isActive: q.isActive,
           tags: q.tags.join(', '),
+          timeLimitSeconds: q.timeLimitSeconds ?? null,
           options: q.options
             .sort((a, b) => a.orderIndex - b.orderIndex)
             .map((o) => ({ text: o.textMarkdown, isCorrect: o.isCorrect })),
@@ -151,6 +155,7 @@ export function QuestionForm({
           .split(',')
           .map((t) => t.trim().toLowerCase())
           .filter(Boolean),
+        timeLimitSeconds: draft.timeLimitSeconds,
         options: draft.options.map((o) => ({
           text: o.text.trim(),
           isCorrect: o.isCorrect,
@@ -341,6 +346,39 @@ export function QuestionForm({
                 className="input"
                 placeholder="stability, gm"
               />
+            </div>
+            <div>
+              <label className="label">Time limit (seconds)</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  min={5}
+                  max={600}
+                  value={draft.timeLimitSeconds ?? ''}
+                  placeholder="untimed"
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      timeLimitSeconds:
+                        e.target.value === '' ? null : Number(e.target.value),
+                    })
+                  }
+                  className="input flex-1"
+                />
+                {draft.timeLimitSeconds != null && (
+                  <button
+                    type="button"
+                    onClick={() => setDraft({ ...draft, timeLimitSeconds: null })}
+                    className="btn-ghost text-xs"
+                  >
+                    Untimed
+                  </button>
+                )}
+              </div>
+              <p className="helper">
+                Visitors see a countdown; attempt is auto-expired if time runs
+                out. Leave blank for no limit.
+              </p>
             </div>
             <label className="flex cursor-pointer items-center gap-2 text-sm">
               <input

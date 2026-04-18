@@ -186,9 +186,11 @@ export class AssignmentService {
     return {
       attemptId: attempt.id,
       ticketNumber: attempt.question.ticketNumber ?? null,
+      timeLimitSeconds: attempt.question.timeLimitSeconds ?? null,
       question: {
         id: attempt.question.id,
         ticketNumber: attempt.question.ticketNumber ?? null,
+        timeLimitSeconds: attempt.question.timeLimitSeconds ?? null,
         title: attempt.question.title,
         stem: attempt.question.stemMarkdown,
         type: attempt.question.type,

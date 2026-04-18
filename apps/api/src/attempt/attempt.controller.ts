@@ -21,4 +21,15 @@ export class AttemptController {
       clientNonce: dto.clientNonce,
     });
   }
+
+  @Post('expire')
+  async expire(
+    @Req() req: CandidateReq,
+    @Body() body: { attemptId: string },
+  ) {
+    return this.svc.expire({
+      candidateId: req.candidateSession!.candidateId,
+      attemptId: body.attemptId,
+    });
+  }
 }

@@ -9,9 +9,11 @@ import { api, type ApiError } from '@/lib/api';
 type QuestionPayload = {
   attemptId: string;
   ticketNumber: number | null;
+  timeLimitSeconds: number | null;
   question: {
     id: string;
     ticketNumber: number | null;
+    timeLimitSeconds: number | null;
     title: string;
     stem: string;
     type: 'TEXT' | 'IMAGE' | 'MIXED';
@@ -106,6 +108,44 @@ export default function QuestionPage() {
   }
 
   const seconds = Math.max(0, Math.floor((now - shownAt) / 1000));
+  const limit = data.timeLimitSeconds ?? null;
+  const remaining = limit != null ? Math.max(0, limit - seconds) : null;
+  const timesUp = remaining === 0 && limit != null;
+  const lowTime = remaining != null && remaining <= 10 && remaining > 0;
+
+  // Auto-submit / auto-expire when the countdown hits zero.
+  useEffect(() => {
+    if (!timesUp || !data) return;
+    (async () => {
+      if (selectedId) {
+        try {
+          const r = await api<{ resultId: string }>('/attempts/submit', {
+            method: 'POST',
+            body: JSON.stringify({
+              attemptId: data.attemptId,
+              optionId: selectedId,
+              clientNonce: nonce,
+              clientStartAt: new Date(shownAt).toISOString(),
+            }),
+          });
+          router.push(`/result/${r.resultId}`);
+          return;
+        } catch {
+          /* fall through to expire */
+        }
+      }
+      try {
+        await api('/attempts/expire', {
+          method: 'POST',
+          body: JSON.stringify({ attemptId: data.attemptId }),
+        });
+      } catch {
+        /* ignore */
+      }
+      router.replace('/');
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timesUp]);
 
   return (
     <Shell>
@@ -121,11 +161,29 @@ export default function QuestionPage() {
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2 rounded-full border border-blueprint-cyan/30 bg-deep-sea/60 px-4 py-1.5 font-mono text-sm text-blueprint-cyan">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-blueprint-cyan" />
-              {String(Math.floor(seconds / 60)).padStart(2, '0')}:
-              {String(seconds % 60).padStart(2, '0')}
-            </div>
+            {remaining != null ? (
+              <div
+                className={`flex items-center gap-2 rounded-full border px-4 py-1.5 font-mono text-lg ${
+                  lowTime
+                    ? 'border-coral-red/60 bg-coral-red/15 text-coral-red'
+                    : 'border-blueprint-cyan/30 bg-deep-sea/60 text-blueprint-cyan'
+                }`}
+              >
+                <span
+                  className={`h-2 w-2 animate-pulse rounded-full ${
+                    lowTime ? 'bg-coral-red' : 'bg-blueprint-cyan'
+                  }`}
+                />
+                {String(Math.floor(remaining / 60)).padStart(2, '0')}:
+                {String(remaining % 60).padStart(2, '0')}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 rounded-full border border-blueprint-cyan/30 bg-deep-sea/60 px-4 py-1.5 font-mono text-sm text-blueprint-cyan">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-blueprint-cyan" />
+                {String(Math.floor(seconds / 60)).padStart(2, '0')}:
+                {String(seconds % 60).padStart(2, '0')}
+              </div>
+            )}
           </div>
 
           <div className="panel">

@@ -42,6 +42,7 @@ class CreateQuestionDto {
   @IsString() @IsOptional() primaryMediaId?: string;
   @IsBoolean() @IsOptional() isActive?: boolean;
   @IsArray() @IsString({ each: true }) @IsOptional() tags?: string[];
+  @IsInt() @Min(5) @IsOptional() timeLimitSeconds?: number | null;
   @IsArray() @ValidateNested({ each: true }) @Type(() => OptionDto) @ArrayMinSize(2)
   options!: OptionDto[];
 }
@@ -55,6 +56,7 @@ class UpdateQuestionDto {
   @IsString() @IsOptional() primaryMediaId?: string;
   @IsBoolean() @IsOptional() isActive?: boolean;
   @IsArray() @IsString({ each: true }) @IsOptional() tags?: string[];
+  @IsInt() @Min(5) @IsOptional() timeLimitSeconds?: number | null;
   @IsArray() @ValidateNested({ each: true }) @Type(() => OptionDto) @IsOptional()
   options?: OptionDto[];
 }
@@ -152,6 +154,7 @@ export class AdminQuestionController {
         primaryMediaId: dto.primaryMediaId,
         isActive: dto.isActive ?? true,
         tags: dto.tags ?? [],
+        timeLimitSeconds: dto.timeLimitSeconds ?? null,
         ticketNumber: nextTicket,
         createdById: req.admin!.sub,
         options: {
@@ -199,6 +202,7 @@ export class AdminQuestionController {
           primaryMediaId: dto.primaryMediaId,
           isActive: dto.isActive,
           tags: dto.tags,
+          timeLimitSeconds: dto.timeLimitSeconds,
           version: { increment: 1 },
         },
       });
