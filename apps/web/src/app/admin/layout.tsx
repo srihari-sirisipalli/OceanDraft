@@ -19,6 +19,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             </div>
           </Link>
           <div className="flex flex-wrap items-center gap-6 text-sm font-medium text-anchor-steel">
+            <NavLink href="/admin/event-board" label="Event Board" />
             <NavLink href="/admin/dashboard" label="Dashboard" />
             <NavLink href="/admin/questions" label="Questions" />
             <NavLink href="/admin/categories" label="Categories" />

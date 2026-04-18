@@ -29,6 +29,7 @@ import { AdminMediaModule } from './admin/media/admin-media.module';
 import { AdminUserModule } from './admin/user/admin-user.module';
 import { AdminReportModule } from './admin/report/admin-report.module';
 import { AdminTemplateModule } from './admin/template/admin-template.module';
+import { AdminEventModule } from './admin/event/admin-event.module';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 import { CsrfMiddleware } from './common/middleware/csrf.middleware';
 
@@ -65,6 +66,7 @@ import { CsrfMiddleware } from './common/middleware/csrf.middleware';
     AdminUserModule,
     AdminReportModule,
     AdminTemplateModule,
+    AdminEventModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

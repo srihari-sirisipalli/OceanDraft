@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Shell } from '@/components/Shell';
 import { api, type ApiError } from '@/lib/api';
+import { usePublicSettings } from '@/lib/public-settings';
 
 type ResultPayload = {
   status: 'CORRECT' | 'WRONG';
@@ -18,8 +20,10 @@ type ResultPayload = {
 };
 
 export default function ResultPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
   const [data, setData] = useState<ResultPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const settings = usePublicSettings();
 
   useEffect(() => {
     (async () => {
@@ -31,6 +35,22 @@ export default function ResultPage({ params }: { params: { id: string } }) {
       }
     })();
   }, [params.id]);
+
+  // Kiosk auto-reset countdown
+  const kiosk = !!settings?.event.kioskMode;
+  const autoSecs = settings?.event.autoResetSeconds ?? 10;
+  const [remaining, setRemaining] = useState(autoSecs);
+  useEffect(() => {
+    if (!kiosk || !data) return;
+    setRemaining(autoSecs);
+    const t = setInterval(() => setRemaining((r) => (r > 0 ? r - 1 : 0)), 1000);
+    return () => clearInterval(t);
+  }, [kiosk, autoSecs, data]);
+
+  useEffect(() => {
+    if (!kiosk || remaining > 0) return;
+    router.replace('/');
+  }, [kiosk, remaining, router]);
 
   if (error) {
     return (
@@ -66,7 +86,6 @@ export default function ResultPage({ params }: { params: { id: string } }) {
     <Shell>
       <section className="shell-hero py-16 md:py-24">
         <div className="mx-auto flex w-full max-w-3xl flex-col items-center text-center">
-          {/* Hero medallion */}
           <div
             className={`relative mb-10 flex h-40 w-40 items-center justify-center rounded-full md:h-56 md:w-56 ${
               correct
@@ -84,8 +103,7 @@ export default function ResultPage({ params }: { params: { id: string } }) {
             </div>
           </div>
 
-          <span className="eyebrow">{correct ? 'Result · Correct' : 'Result · Incorrect'}</span>
-
+          <span className="eyebrow">{correct ? 'Correct' : 'Not quite'}</span>
           <h1
             className={`display-xl mt-4 ${
               correct ? 'text-foam-green' : 'text-coral-red'
@@ -106,24 +124,26 @@ export default function ResultPage({ params }: { params: { id: string } }) {
           )}
 
           <div className="mt-10 flex flex-wrap items-center justify-center gap-6 text-sm text-anchor-steel">
-            {seconds && (
-              <Stat
-                label="Time taken"
-                value={`${seconds}s`}
-              />
-            )}
-            <Stat
-              label="Attempts"
-              value="1 of 1"
-            />
+            {seconds && <Stat label="Time taken" value={`${seconds}s`} />}
             <Stat label="Result" value={correct ? 'Pass' : 'Fail'} />
           </div>
 
           <div className="mt-12 flex flex-wrap justify-center gap-4">
-            <Link href="/" className="btn-secondary">
-              Return to shore
-            </Link>
+            {kiosk ? (
+              <Link href="/" className="btn-primary text-lg">
+                Next visitor → ({remaining}s)
+              </Link>
+            ) : (
+              <Link href="/" className="btn-secondary">
+                Return to shore
+              </Link>
+            )}
           </div>
+          {kiosk && (
+            <p className="mt-6 text-xs text-anchor-steel">
+              Auto-reset in {remaining}s · tap anywhere on the button for the next visitor
+            </p>
+          )}
         </div>
       </section>
     </Shell>

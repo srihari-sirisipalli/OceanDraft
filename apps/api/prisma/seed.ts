@@ -261,16 +261,29 @@ async function main() {
     { key: 'otp.max_resends_per_15m', value: 3, type: 'int' },
     { key: 'captcha.enabled', value: false, type: 'bool' },
     { key: 'captcha.type', value: 'ARITHMETIC', type: 'enum' },
-    { key: 'attempt.policy', value: 'SINGLE_LIFETIME', type: 'enum' },
+    { key: 'attempt.policy', value: 'UNLIMITED', type: 'enum' },
+    { key: 'event.kiosk_mode', value: true, type: 'bool' },
+    { key: 'event.collect_mobile', value: false, type: 'bool' },
+    { key: 'event.auto_reset_seconds', value: 10, type: 'int' },
+    { key: 'event.booth_name', value: 'OceanDraft · Event booth', type: 'string' },
     { key: 'assignment.mode', value: 'RANDOM_ACTIVE', type: 'enum' },
     { key: 'result.reveal_correct_on_fail', value: false, type: 'bool' },
     { key: 'branding.product_name', value: 'OceanDraft', type: 'string' },
     { key: 'privacy.policy_url', value: 'https://example.com/privacy', type: 'url' },
   ];
+  // Keys whose defaults we actively re-align on every seed (event-mode reshape).
+  const forceReset = new Set([
+    'attempt.policy',
+    'event.kiosk_mode',
+    'event.collect_mobile',
+    'event.auto_reset_seconds',
+    'event.booth_name',
+  ]);
   for (const s of settings) {
+    const force = forceReset.has(s.key);
     await prisma.appSetting.upsert({
       where: { key: s.key },
-      update: {},
+      update: force ? { valueJson: s.value as never, type: s.type } : {},
       create: { key: s.key, valueJson: s.value as never, type: s.type },
     });
   }

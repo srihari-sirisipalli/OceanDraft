@@ -10,8 +10,12 @@ export function normalizeMobile(raw: string, defaultCountry = 'IN'): string | nu
   return parsed.number; // E.164
 }
 
-export function maskMobile(e164: string): string {
-  if (!e164 || e164.length < 6) return e164;
-  const last4 = e164.slice(-4);
-  return `${e164.slice(0, 3)}******${last4}`;
+export function maskMobile(value: string): string {
+  if (!value) return value;
+  if (value.startsWith('GUEST-')) {
+    return `Guest · ${value.slice(6, 10).toUpperCase()}`;
+  }
+  if (value.length < 6) return value;
+  const last4 = value.slice(-4);
+  return `${value.slice(0, 3)}******${last4}`;
 }
