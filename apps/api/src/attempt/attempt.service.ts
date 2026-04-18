@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { attemptsSubmitted } from '../metrics/metrics.module';
 
 @Injectable()
 export class AttemptService {
@@ -48,7 +49,21 @@ export class AttemptService {
     const submittedAt = new Date();
     const timeTakenMs = submittedAt.getTime() - shownAt.getTime();
     const isCorrect = option.isCorrect;
-    const templateKey = isCorrect ? 'HOORAY_DEFAULT' : 'FAIL_DEFAULT';
+
+    // Look for a per-category override first, e.g. HOORAY_CAT_ship-stability.
+    const question = await this.prisma.question.findUnique({
+      where: { id: attempt.questionId },
+      include: { category: true },
+    });
+    const base = isCorrect ? 'HOORAY' : 'FAIL';
+    const slug = question?.category.slug ?? '';
+    const overrideKey = `${base}_CAT_${slug}`;
+    const override = slug
+      ? await this.prisma.resultTemplate.findFirst({
+          where: { key: overrideKey, isActive: true },
+        })
+      : null;
+    const templateKey = override ? overrideKey : `${base}_DEFAULT`;
 
     const updated = await this.prisma.attempt.update({
       where: { id: attempt.id },
@@ -78,6 +93,7 @@ export class AttemptService {
       },
     });
 
+    attemptsSubmitted.inc({ result: isCorrect ? 'correct' : 'wrong' });
     return { resultId: updated.id };
   }
 

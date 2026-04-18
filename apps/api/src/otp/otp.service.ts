@@ -19,6 +19,7 @@ import {
   hashOtp,
   sha256,
 } from '../common/utils/otp';
+import { otpSent, otpVerified } from '../metrics/metrics.module';
 
 @Injectable()
 export class OtpService {
@@ -57,6 +58,20 @@ export class OtpService {
       throw new HttpException(
         { code: 'RATE_LIMITED', message: 'Too many attempts. Please try again later.' },
         HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    // Daily global SMS cap (configurable via env SMS_DAILY_CAP, default 5000)
+    const dailyCap = Number(process.env.SMS_DAILY_CAP ?? 5000);
+    const dayKey = `otp:daily:${new Date().toISOString().slice(0, 10)}`;
+    const dailyCount = await this.redis.incrWithTtl(dayKey, 26 * 3600);
+    if (dailyCount > dailyCap) {
+      throw new HttpException(
+        {
+          code: 'SMS_DAILY_CAP_REACHED',
+          message: 'System SMS quota for today is exhausted. Please try later.',
+        },
+        HttpStatus.SERVICE_UNAVAILABLE,
       );
     }
 
@@ -124,6 +139,8 @@ export class OtpService {
       },
     });
 
+    otpSent.inc({ provider: this.sms.name, outcome: result.ok ? 'ok' : 'failed' });
+
     if (!result.ok) {
       throw new HttpException(
         { code: 'OTP_SEND_FAILED', message: 'Failed to send OTP.' },
@@ -169,6 +186,7 @@ export class OtpService {
     const ok = expectedHash === otp.otpHash;
 
     if (!ok) {
+      otpVerified.inc({ outcome: 'invalid' });
       const attempts = otp.verifyAttempts + 1;
       const locked = attempts >= otp.maxVerifyAttempts;
       await this.prisma.otpRequest.update({
@@ -187,6 +205,7 @@ export class OtpService {
       where: { id: otp.id },
       data: { status: 'CONSUMED' },
     });
+    otpVerified.inc({ outcome: 'ok' });
 
     // Create candidate session
     const token = generateSessionToken();

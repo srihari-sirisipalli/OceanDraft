@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Shell } from '@/components/Shell';
+import { SafeMarkdown } from '@/components/SafeMarkdown';
 import { api, type ApiError } from '@/lib/api';
 
 type QuestionPayload = {
@@ -129,9 +130,10 @@ export default function QuestionPage() {
               </figure>
             )}
 
-            <p className="mb-8 whitespace-pre-wrap text-xl leading-relaxed md:text-2xl">
-              {data.question.stem}
-            </p>
+            <SafeMarkdown
+              className="mb-8 text-xl leading-relaxed md:text-2xl"
+              source={data.question.stem}
+            />
 
             <div className="space-y-3">
               {data.question.options.map((o, idx) => {
@@ -149,7 +151,7 @@ export default function QuestionPage() {
                     <span className="font-mono text-sm text-blueprint-cyan">
                       {String.fromCharCode(65 + idx)}
                     </span>
-                    <span className="flex-1">{o.text}</span>
+                    <SafeMarkdown className="flex-1" source={o.text} />
                     <input
                       type="radio"
                       name="option"

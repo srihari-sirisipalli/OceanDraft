@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: Build & test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: ocean
+          POSTGRES_PASSWORD: ocean
+          POSTGRES_DB: oceandraft
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd="pg_isready -U ocean -d oceandraft"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=10
+
+    env:
+      DATABASE_URL: postgresql://ocean:ocean@localhost:5432/oceandraft?schema=public
+      REDIS_URL: redis://localhost:6379
+      NODE_ENV: test
+      OTP_DEV_MODE: 'true'
+      SESSION_COOKIE_SECRET: ci-cookie-secret-abcdefghij
+      JWT_SECRET: ci-jwt-secret-abcdefghij
+      SEED_ADMIN_USERNAME: admin
+      SEED_ADMIN_EMAIL: admin@oceandraft.ci
+      SEED_ADMIN_PASSWORD: ChangeMe!123456
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Prisma generate & migrate
+        working-directory: apps/api
+        run: |
+          npx prisma generate
+          npx prisma migrate deploy
+
+      - name: Seed
+        working-directory: apps/api
+        run: npm run prisma:seed
+
+      - name: Typecheck & lint (api)
+        working-directory: apps/api
+        run: npm run build
+
+      - name: Unit tests (api)
+        working-directory: apps/api
+        run: npm test
+
+      - name: Build (web)
+        working-directory: apps/web
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: npm run build
+
+      - name: Start API
+        working-directory: apps/api
+        run: |
+          nohup node dist/main.js > /tmp/api.log 2>&1 &
+          for i in {1..30}; do
+            curl -sf http://localhost:4000/health && break
+            sleep 1
+          done
+
+      - name: Start web
+        working-directory: apps/web
+        env:
+          API_BASE_URL: http://localhost:4000
+        run: |
+          nohup npm run start > /tmp/web.log 2>&1 &
+          for i in {1..30}; do
+            curl -sf http://localhost:3000 && break
+            sleep 1
+          done
+
+      - name: Install Playwright browser
+        working-directory: apps/e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E smoke
+        working-directory: apps/e2e
+        env:
+          E2E_BASE_URL: http://localhost:3000
+          E2E_API_URL: http://localhost:4000/api/v1
+        run: npm test
+
+      - name: Dump API log on failure
+        if: failure()
+        run: tail -200 /tmp/api.log || true

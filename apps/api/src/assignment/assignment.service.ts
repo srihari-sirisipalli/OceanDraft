@@ -98,6 +98,29 @@ export class AssignmentService {
       const designatedId = await this.readSetting<string>('assignment.all_same_question_id');
       if (!designatedId) throw new NotFoundException({ code: 'NO_DESIGNATED_QUESTION' });
       questionId = designatedId;
+    } else if (mode === 'ONE_TIME_USE_POOL') {
+      // Each question may be shown at most once across all candidates.
+      const usedIds = (
+        await this.prisma.attempt.findMany({
+          where: { status: { in: ['SUBMITTED', 'IN_PROGRESS'] } },
+          select: { questionId: true },
+          distinct: ['questionId'],
+        })
+      ).map((a) => a.questionId);
+      const ids = await this.prisma.question.findMany({
+        where: {
+          isActive: true,
+          ...(usedIds.length ? { id: { notIn: usedIds } } : {}),
+        },
+        select: { id: true },
+      });
+      if (ids.length === 0) {
+        throw new NotFoundException({
+          code: 'NO_ACTIVE_QUESTION',
+          message: 'The one-time-use pool is empty — no fresh questions remain.',
+        });
+      }
+      questionId = ids[Math.floor(Math.random() * ids.length)].id;
     } else {
       const whereBase = {
         isActive: true,

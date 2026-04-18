@@ -15,14 +15,31 @@ async function bootstrap() {
     .map((s) => s.trim())
     .filter(Boolean);
 
-  app.use(helmet({ crossOriginResourcePolicy: false }));
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      contentSecurityPolicy: {
+        useDefaults: true,
+        directives: {
+          'default-src': ["'self'"],
+          'img-src': ["'self'", 'data:', 'blob:', ...origins],
+          'script-src': ["'self'"],
+          'style-src': ["'self'", "'unsafe-inline'"],
+          'connect-src': ["'self'", ...origins],
+          'frame-ancestors': ["'none'"],
+        },
+      },
+      referrerPolicy: { policy: 'no-referrer' },
+    }),
+  );
   app.use(cookieParser(process.env.SESSION_COOKIE_SECRET ?? 'dev-cookie-secret'));
   app.enableCors({
     origin: origins,
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    exposedHeaders: ['x-correlation-id'],
   });
-  app.setGlobalPrefix('api/v1');
+  app.setGlobalPrefix('api/v1', { exclude: ['metrics', 'health'] });
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
