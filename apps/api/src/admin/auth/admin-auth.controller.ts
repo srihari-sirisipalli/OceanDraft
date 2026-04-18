@@ -14,6 +14,7 @@ import type { Response } from 'express';
 import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { AdminAuthService } from './admin-auth.service';
 import { AdminGuard, type AdminReq } from './admin.guard';
+import { baseCookie } from '../../common/utils/cookie';
 
 class LoginDto {
   @IsString() @IsNotEmpty() username!: string;
@@ -40,12 +41,7 @@ export class AdminAuthController {
       ip,
       ua,
     });
-    res.cookie('od_admin', r.token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-    });
+    res.cookie('od_admin', r.token, baseCookie());
     return r;
   }
 

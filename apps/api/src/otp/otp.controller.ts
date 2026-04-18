@@ -2,6 +2,7 @@ import { Body, Controller, Headers, Ip, Post, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { OtpService } from './otp.service';
 import { ResendOtpDto, SendOtpDto, VerifyOtpDto } from './dto/send-otp.dto';
+import { baseCookie } from '../common/utils/cookie';
 
 @Controller('otp')
 export class OtpController {
@@ -38,13 +39,11 @@ export class OtpController {
       ip,
       ua,
     });
-    res.cookie('od_sess', r.sessionToken, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: (r.expiresAt.getTime() - Date.now()),
-      path: '/',
-    });
+    res.cookie(
+      'od_sess',
+      r.sessionToken,
+      baseCookie(r.expiresAt.getTime() - Date.now()),
+    );
     return {
       sessionToken: r.sessionToken,
       captchaRequired: r.captchaRequired,

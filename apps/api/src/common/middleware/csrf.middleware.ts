@@ -22,7 +22,7 @@ export class CsrfMiddleware implements NestMiddleware {
       res.cookie(CSRF_COOKIE, token, {
         httpOnly: false, // readable by the SPA so it can echo in a header
         sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
+        secure: (process.env.COOKIE_SECURE ?? 'false') === 'true',
         path: '/',
       });
     }
