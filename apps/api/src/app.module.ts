@@ -38,12 +38,14 @@ import { CsrfMiddleware } from './common/middleware/csrf.middleware';
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([
-      // Per-IP general throttle. 300/min is generous enough for an
-      // authenticated admin browsing the preview walkthrough (which
-      // issues many list/media reads per page), while still blocking
-      // runaway loops. OTP / login stay on the 'strict' tier.
+      // Only the default tier is globally applied. 300/min is generous
+      // enough for an authenticated admin browsing the preview walkthrough
+      // (which issues many list + media reads per page). Abuse-sensitive
+      // endpoints (admin login, OTP send/resend/verify) opt into a stricter
+      // limit via `@Throttle({ default: { limit: 10, ttl: 60_000 } })` at
+      // the handler level — keeping strict as a global tier throttled every
+      // request to 10/min which defeated the whole booth flow.
       { name: 'default', ttl: 60_000, limit: 300 },
-      { name: 'strict', ttl: 60_000, limit: 10 },
     ]),
     PrismaModule,
     RedisModule,

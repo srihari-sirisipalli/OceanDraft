@@ -10,6 +10,7 @@ import {
   UseGuards,
   Headers,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { AdminAuthService } from './admin-auth.service';
@@ -26,6 +27,9 @@ class LoginDto {
 export class AdminAuthController {
   constructor(private readonly svc: AdminAuthService) {}
 
+  // Login is abuse-sensitive: 10 attempts per minute per IP is ample
+  // for legitimate admins and blocks credential-stuffing bursts.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('login')
   @HttpCode(200)
   async login(

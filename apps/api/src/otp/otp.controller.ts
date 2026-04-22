@@ -1,9 +1,15 @@
 import { Body, Controller, Headers, Ip, Post, Res } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { OtpService } from './otp.service';
 import { ResendOtpDto, SendOtpDto, VerifyOtpDto } from './dto/send-otp.dto';
 import { baseCookie } from '../common/utils/cookie';
 
+// OTP endpoints are abuse-sensitive (SMS cost + brute-force risk on verify).
+// Per-IP strict tier: 10 per minute is generous for a legitimate flow while
+// blocking bursts. The OTP service additionally enforces per-mobile limits
+// (see OtpService — those are independent).
+@Throttle({ default: { limit: 10, ttl: 60_000 } })
 @Controller('otp')
 export class OtpController {
   constructor(private readonly svc: OtpService) {}
