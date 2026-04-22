@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { attemptsSubmitted } from '../metrics/metrics.module';
+import { computeDisplayTicket } from '../common/utils/display-ticket';
 
 @Injectable()
 export class AttemptService {
@@ -137,7 +138,10 @@ export class AttemptService {
     });
 
     attemptsSubmitted.inc({ result: isCorrect ? 'correct' : 'wrong' });
-    return { resultId: updated.id };
+    return {
+      resultId: updated.id,
+      status: (isCorrect ? 'CORRECT' : 'WRONG') as 'CORRECT' | 'WRONG',
+    };
   }
 
   async expire(params: { candidateId: string; attemptId: string }) {
@@ -149,9 +153,23 @@ export class AttemptService {
       throw new BadRequestException({ code: 'ATTEMPT_OWNERSHIP_MISMATCH' });
     }
     if (attempt.status === 'IN_PROGRESS') {
+      // Pick a random EXPIRE_* template so the result page can show a
+      // timeout-themed headline instead of a pass/fail one.
+      const pool = await this.prisma.resultTemplate.findMany({
+        where: { key: { startsWith: 'EXPIRE_' }, isActive: true },
+        select: { key: true },
+      });
+      const templateKey =
+        pool.length > 0
+          ? pool[Math.floor(Math.random() * pool.length)].key
+          : 'EXPIRE_DEFAULT';
       await this.prisma.attempt.update({
         where: { id: attempt.id },
-        data: { status: 'EXPIRED', answerSubmittedAt: new Date() },
+        data: {
+          status: 'EXPIRED',
+          answerSubmittedAt: new Date(),
+          resultTemplateUsed: templateKey,
+        },
       });
     }
     return { ok: true };
@@ -161,7 +179,7 @@ export class AttemptService {
     const attempt = await this.prisma.attempt.findUnique({
       where: { id: params.attemptId },
       include: {
-        question: { include: { options: true } },
+        question: { include: { options: true, category: true } },
         selectedOption: true,
         resultRecord: true,
       },
@@ -170,26 +188,47 @@ export class AttemptService {
     if (attempt.candidateId !== params.candidateId) {
       throw new BadRequestException({ code: 'ATTEMPT_OWNERSHIP_MISMATCH' });
     }
-    if (attempt.status !== 'SUBMITTED') {
+    if (attempt.status !== 'SUBMITTED' && attempt.status !== 'EXPIRED') {
       throw new BadRequestException({ code: 'ATTEMPT_NOT_SUBMITTED' });
     }
 
-    const templateKey = attempt.resultTemplateUsed ?? 'FAIL_DEFAULT';
+    const isExpired = attempt.status === 'EXPIRED';
+    const templateKey =
+      attempt.resultTemplateUsed ??
+      (isExpired ? 'EXPIRE_DEFAULT' : 'FAIL_DEFAULT');
     const template = await this.prisma.resultTemplate.findUnique({
       where: { key: templateKey },
     });
 
     const reveal = template?.revealCorrectOnFail ?? false;
     const correctOptions =
-      !attempt.isCorrect && reveal
+      !attempt.isCorrect && (reveal || isExpired)
         ? attempt.question.options.filter((o) => o.isCorrect)
         : [];
 
     return {
-      status: attempt.isCorrect ? 'CORRECT' : 'WRONG',
+      status: isExpired
+        ? 'EXPIRED'
+        : attempt.isCorrect
+          ? 'CORRECT'
+          : 'WRONG',
       headline:
-        template?.headline ?? (attempt.isCorrect ? 'Hooray!' : 'Not quite'),
+        template?.headline ??
+        (isExpired
+          ? "Time's up, captain"
+          : attempt.isCorrect
+            ? 'Hooray!'
+            : 'Not quite'),
       body: template?.bodyMarkdown ?? '',
+      ticketNumber: attempt.question.ticketNumber ?? null,
+      displayTicketNumber: computeDisplayTicket(attempt.question.ticketNumber),
+      category: attempt.question.category
+        ? {
+            slug: attempt.question.category.slug,
+            name: attempt.question.category.name,
+          }
+        : null,
+      timeLimitSeconds: attempt.question.timeLimitSeconds ?? null,
       correctOption:
         correctOptions.length === 1
           ? { id: correctOptions[0].id, text: correctOptions[0].textMarkdown }

@@ -134,6 +134,18 @@ const SECTIONS: Section[] = [
         help: 'When on, the Rough-seas page tells them what the right option was.',
         type: { kind: 'bool' },
       },
+      {
+        key: 'result.auto_reset_fallback_enabled',
+        label: 'Safety auto-reset',
+        help: 'After a result is shown, reset the booth if no one interacts for a while. Activity resets the timer.',
+        type: { kind: 'bool' },
+      },
+      {
+        key: 'result.auto_reset_fallback_seconds',
+        label: 'Safety reset delay (seconds)',
+        help: 'How long to wait with no interaction before auto-returning to the landing page.',
+        type: { kind: 'int', min: 30, max: 600 },
+      },
     ],
   },
   {
@@ -143,6 +155,24 @@ const SECTIONS: Section[] = [
         key: 'branding.product_name',
         label: 'Product name',
         type: { kind: 'string' },
+      },
+      {
+        key: 'branding.animations_enabled',
+        label: 'Animations & scenes',
+        help: 'Gates ship backgrounds, page transitions and confetti. Turn off if motion is an issue at the booth.',
+        type: { kind: 'bool' },
+      },
+      {
+        key: 'branding.sound_enabled',
+        label: 'Sound effects',
+        help: 'Global switch — visitors can still mute locally from the speaker icon.',
+        type: { kind: 'bool' },
+      },
+      {
+        key: 'branding.ambient_ocean_enabled',
+        label: 'Ambient ocean drone',
+        help: 'Low, quiet background drone while a visitor reads the question.',
+        type: { kind: 'bool' },
       },
       {
         key: 'privacy.policy_url',

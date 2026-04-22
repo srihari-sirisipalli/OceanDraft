@@ -10,9 +10,18 @@ export type PublicSettings = {
     autoResetSeconds: number;
     boothName: string;
   };
-  branding: { productName: string };
+  branding: {
+    productName: string;
+    animationsEnabled: boolean;
+    soundEnabled: boolean;
+    ambientOceanEnabled: boolean;
+  };
   captcha: { enabled: boolean };
-  result: { revealCorrectOnFail: boolean };
+  result: {
+    revealCorrectOnFail: boolean;
+    autoResetFallbackSeconds: number;
+    autoResetFallbackEnabled: boolean;
+  };
   privacy: { policyUrl: string };
 };
 
@@ -23,9 +32,18 @@ const FALLBACK: PublicSettings = {
     autoResetSeconds: 10,
     boothName: 'OceanDraft · Event booth',
   },
-  branding: { productName: 'OceanDraft' },
+  branding: {
+    productName: 'OceanDraft',
+    animationsEnabled: true,
+    soundEnabled: true,
+    ambientOceanEnabled: true,
+  },
   captcha: { enabled: false },
-  result: { revealCorrectOnFail: false },
+  result: {
+    revealCorrectOnFail: false,
+    autoResetFallbackSeconds: 120,
+    autoResetFallbackEnabled: true,
+  },
   privacy: { policyUrl: '/privacy' },
 };
 

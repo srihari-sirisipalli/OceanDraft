@@ -47,3 +47,7 @@ test-results/
 *.pem
 .cache/
 .claude/
+
+# raw import source — imported into the DB via apps/api/scripts/, not needed in git
+Marine_Quiz_With_Images.xlsx
+~$*.xlsx

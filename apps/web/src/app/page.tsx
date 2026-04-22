@@ -61,21 +61,33 @@ function KioskGate({
 
   return (
     <Shell
+      scene="default"
       topRight={
         <Link href="/admin/login" className="btn-ghost text-sm">
           Admin →
         </Link>
       }
     >
-      <section className="shell-hero flex-col py-16 md:py-24">
-        <div className="mx-auto flex w-full max-w-5xl flex-col items-center text-center">
-          <span className="eyebrow mb-4">{boothName}</span>
-          <h1 className="display-xl mb-6">
+      <section className="shell-hero flex-col py-6">
+        <div className="mx-auto flex w-full max-w-[90rem] flex-col items-center text-center">
+          <span
+            className="eyebrow mb-4"
+            style={{ fontSize: 'clamp(0.95rem, 1.2vw, 1.2rem)', letterSpacing: '0.35em' }}
+          >
+            {boothName}
+          </span>
+          <h1
+            className="mb-6 font-display font-black leading-[0.95] tracking-tight"
+            style={{ fontSize: 'clamp(4rem, 13vw, 12rem)' }}
+          >
             Can you read
             <br />
             <span className="text-blueprint-cyan">the tide?</span>
           </h1>
-          <p className="lede mx-auto mb-10 text-center">
+          <p
+            className="lede mx-auto mb-10 max-w-4xl text-center"
+            style={{ fontSize: 'clamp(1.2rem, 1.8vw, 1.9rem)' }}
+          >
             One marine & naval architecture question stands between you and the
             brass medal. Tap below, make your best call, and see how you fare.
           </p>
@@ -83,17 +95,24 @@ function KioskGate({
           <button
             onClick={start}
             disabled={loading}
-            className="btn-primary text-2xl px-14 py-6 shadow-xl"
+            className="btn-primary shadow-xl"
+            style={{
+              padding: '1.5rem 4.5rem',
+              fontSize: 'clamp(1.5rem, 2.5vw, 2.25rem)',
+            }}
           >
             {loading ? 'Weighing anchor…' : '⚓ Take the challenge'}
           </button>
           {err && <div className="alert-error mt-6">{err}</div>}
 
-          <div className="mt-16 hidden md:block">
-            <CompassMark size={220} />
+          <div className="mt-10 hidden md:block">
+            <CompassMark size={180} />
           </div>
 
-          <div className="mt-10 flex flex-wrap gap-8 text-sm text-anchor-steel">
+          <div
+            className="mt-8 flex flex-wrap justify-center gap-10 text-anchor-steel"
+            style={{ fontSize: 'clamp(0.9rem, 1.1vw, 1.1rem)' }}
+          >
             <FeatureBadge label="No sign-up" />
             <FeatureBadge label="One question" />
             <FeatureBadge label="Instant result" />
@@ -152,6 +171,7 @@ function MobileGate({
 
   return (
     <Shell
+      scene="default"
       topRight={
         <Link href="/admin/login" className="btn-ghost text-sm">
           Admin →

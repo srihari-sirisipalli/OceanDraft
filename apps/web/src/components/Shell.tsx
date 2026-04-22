@@ -1,6 +1,17 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { WaveFooter } from './WaveFooter';
+import { MuteButton } from './MuteButton';
+import { ShipBackground } from './ShipBackground';
+import { pickSceneFlavor, type SceneCtx } from '@/lib/scene-picker';
+
+type Scene =
+  | 'reveal'
+  | 'question'
+  | 'result-correct'
+  | 'result-wrong'
+  | 'timeout'
+  | 'default';
 
 export function TopBar({ right }: { right?: ReactNode }) {
   return (
@@ -16,10 +27,11 @@ export function TopBar({ right }: { right?: ReactNode }) {
             OCEANDRAFT
           </span>
         </Link>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {right ?? (
             <span className="eyebrow hidden md:inline">Marine · Naval · Assessment</span>
           )}
+          <MuteButton />
         </div>
       </div>
     </header>
@@ -30,15 +42,26 @@ export function Shell({
   children,
   topRight,
   hideWaves,
+  scene,
+  sceneCtx,
 }: {
   children: ReactNode;
   topRight?: ReactNode;
   hideWaves?: boolean;
+  scene?: Scene;
+  sceneCtx?: Omit<SceneCtx, 'variant'>;
 }) {
+  const flavor =
+    scene && sceneCtx
+      ? pickSceneFlavor({ variant: scene, ...sceneCtx })
+      : undefined;
   return (
     <div className="shell">
       <TopBar right={topRight} />
-      <div className="relative flex-1">{children}</div>
+      <div className="relative flex-1">
+        {scene && <ShipBackground variant={scene} flavor={flavor} />}
+        <div className="relative z-10 flex min-h-full flex-col">{children}</div>
+      </div>
       {!hideWaves && <WaveFooter />}
     </div>
   );

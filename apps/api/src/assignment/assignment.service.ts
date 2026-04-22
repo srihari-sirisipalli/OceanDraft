@@ -9,6 +9,7 @@ import { AssignmentMode } from '@prisma/client';
 
 type AttemptPolicy = 'SINGLE_LIFETIME' | 'SINGLE_PER_DAY' | 'UNLIMITED';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { computeDisplayTicket } from '../common/utils/display-ticket';
 
 @Injectable()
 export class AssignmentService {
@@ -62,7 +63,11 @@ export class AssignmentService {
       where: { sessionId: params.sessionId, status: 'IN_PROGRESS' },
       include: {
         question: {
-          include: { options: { orderBy: { orderIndex: 'asc' } }, primaryMedia: true },
+          include: {
+            options: { orderBy: { orderIndex: 'asc' } },
+            primaryMedia: true,
+            category: true,
+          },
         },
       },
     });
@@ -151,7 +156,11 @@ export class AssignmentService {
 
     const question = await this.prisma.question.findUnique({
       where: { id: questionId },
-      include: { options: { orderBy: { orderIndex: 'asc' } }, primaryMedia: true },
+      include: {
+        options: { orderBy: { orderIndex: 'asc' } },
+        primaryMedia: true,
+        category: true,
+      },
     });
     if (!question || !question.isActive) {
       throw new NotFoundException({ code: 'QUESTION_UNAVAILABLE' });
@@ -171,7 +180,11 @@ export class AssignmentService {
       },
       include: {
         question: {
-          include: { options: { orderBy: { orderIndex: 'asc' } }, primaryMedia: true },
+          include: {
+            options: { orderBy: { orderIndex: 'asc' } },
+            primaryMedia: true,
+            category: true,
+          },
         },
       },
     });
@@ -183,18 +196,35 @@ export class AssignmentService {
     attempt: Awaited<ReturnType<AssignmentService['fetchAttempt']>>,
   ) {
     if (!attempt) throw new NotFoundException();
+    const displayTicketNumber = computeDisplayTicket(
+      attempt.question.ticketNumber,
+    );
     return {
       attemptId: attempt.id,
       ticketNumber: attempt.question.ticketNumber ?? null,
+      displayTicketNumber,
       timeLimitSeconds: attempt.question.timeLimitSeconds ?? null,
+      category: attempt.question.category
+        ? {
+            slug: attempt.question.category.slug,
+            name: attempt.question.category.name,
+          }
+        : null,
       question: {
         id: attempt.question.id,
         ticketNumber: attempt.question.ticketNumber ?? null,
+        displayTicketNumber,
         timeLimitSeconds: attempt.question.timeLimitSeconds ?? null,
         title: attempt.question.title,
         stem: attempt.question.stemMarkdown,
         type: attempt.question.type,
         answerType: attempt.question.answerType,
+        category: attempt.question.category
+          ? {
+              slug: attempt.question.category.slug,
+              name: attempt.question.category.name,
+            }
+          : null,
         primaryMedia: attempt.question.primaryMedia
           ? {
               id: attempt.question.primaryMedia.id,
@@ -217,7 +247,11 @@ export class AssignmentService {
       where: { id },
       include: {
         question: {
-          include: { options: { orderBy: { orderIndex: 'asc' } }, primaryMedia: true },
+          include: {
+            options: { orderBy: { orderIndex: 'asc' } },
+            primaryMedia: true,
+            category: true,
+          },
         },
       },
     });

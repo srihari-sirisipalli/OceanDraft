@@ -319,6 +319,14 @@ async function main() {
     { key: 'FAIL_14', headline: 'Fog bank, briefly 🌁', body: 'It clears. Plot again.' },
     { key: 'FAIL_15', headline: 'Snagged a bit of kelp 🌿', body: 'Clean the propeller and press on.' },
   ];
+  const expires = [
+    { key: 'EXPIRE_DEFAULT', headline: 'Time\'s up, captain ⏳', body: 'The tide waited for no one — let the next mariner draw.' },
+    { key: 'EXPIRE_01', headline: 'Bell tolled before you ⛵', body: 'A breeze in the rigging, but no course plotted.' },
+    { key: 'EXPIRE_02', headline: 'The hourglass ran dry 🕰️', body: 'Even the best skippers lose the light sometimes.' },
+    { key: 'EXPIRE_03', headline: 'Current carried you away 🌊', body: 'Tides turn quickly in these straits.' },
+    { key: 'EXPIRE_04', headline: 'Lost in the fog 🌁', body: 'No harm done — the harbour still stands.' },
+    { key: 'EXPIRE_05', headline: 'Watch change without a reading 🧭', body: 'Pass the wheel — fresh eyes are ready.' },
+  ];
   for (const t of hoorays) {
     await prisma.resultTemplate.upsert({
       where: { key: t.key },
@@ -327,6 +335,19 @@ async function main() {
     });
   }
   for (const t of fails) {
+    await prisma.resultTemplate.upsert({
+      where: { key: t.key },
+      update: { headline: t.headline, bodyMarkdown: t.body, isActive: true },
+      create: {
+        key: t.key,
+        headline: t.headline,
+        bodyMarkdown: t.body,
+        revealCorrectOnFail: false,
+        isActive: true,
+      },
+    });
+  }
+  for (const t of expires) {
     await prisma.resultTemplate.upsert({
       where: { key: t.key },
       update: { headline: t.headline, bodyMarkdown: t.body, isActive: true },
@@ -353,7 +374,12 @@ async function main() {
     { key: 'event.booth_name', value: 'OceanDraft · Event booth', type: 'string' },
     { key: 'assignment.mode', value: 'ONE_TIME_USE_POOL', type: 'enum' },
     { key: 'result.reveal_correct_on_fail', value: false, type: 'bool' },
+    { key: 'result.auto_reset_fallback_seconds', value: 120, type: 'int' },
+    { key: 'result.auto_reset_fallback_enabled', value: true, type: 'bool' },
     { key: 'branding.product_name', value: 'OceanDraft', type: 'string' },
+    { key: 'branding.animations_enabled', value: true, type: 'bool' },
+    { key: 'branding.sound_enabled', value: true, type: 'bool' },
+    { key: 'branding.ambient_ocean_enabled', value: true, type: 'bool' },
     { key: 'privacy.policy_url', value: '/privacy', type: 'url' },
   ];
   const forceReset = new Set([
@@ -364,6 +390,11 @@ async function main() {
     'event.auto_reset_seconds',
     'event.booth_name',
     'privacy.policy_url',
+    'branding.animations_enabled',
+    'branding.sound_enabled',
+    'branding.ambient_ocean_enabled',
+    'result.auto_reset_fallback_seconds',
+    'result.auto_reset_fallback_enabled',
   ]);
   for (const s of settings) {
     const force = forceReset.has(s.key);

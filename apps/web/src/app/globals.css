@@ -154,7 +154,7 @@ body {
 
 /* Option selector */
 .option {
-  @apply flex cursor-pointer items-start gap-4 rounded-xl border-2 border-blueprint-cyan/15 bg-deep-sea/40 p-5 text-lg transition-all;
+  @apply flex cursor-pointer items-start gap-4 rounded-xl border-2 border-blueprint-cyan/15 bg-deep-sea/40 p-6 text-xl transition-all;
 }
 .option:hover {
   @apply border-blueprint-cyan/50 bg-deep-sea/60;
