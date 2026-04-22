@@ -104,16 +104,32 @@ export class AdminQuestionController {
     const page = q.page ?? 1;
     const pageSize = q.pageSize ?? 20;
 
-    const [rows, total] = await Promise.all([
+    const [raw, total] = await Promise.all([
       this.prisma.question.findMany({
         where,
-        include: { category: true, options: { orderBy: { orderIndex: 'asc' } } },
+        include: {
+          category: true,
+          options: { orderBy: { orderIndex: 'asc' } },
+          primaryMedia: true,
+        },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
       this.prisma.question.count({ where }),
     ]);
+    const rows = raw.map((q) => ({
+      ...q,
+      primaryMedia: q.primaryMedia
+        ? {
+            id: q.primaryMedia.id,
+            url: `/api/v1/media/${q.primaryMedia.id}`,
+            mimeType: q.primaryMedia.mimeType,
+            altText: q.primaryMedia.altText,
+            sizeBytes: q.primaryMedia.sizeBytes,
+          }
+        : null,
+    }));
     return { rows, total, page, pageSize };
   }
 

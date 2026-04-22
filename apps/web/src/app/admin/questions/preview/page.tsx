@@ -6,22 +6,20 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { SafeMarkdown } from '@/components/SafeMarkdown';
 import { api, type ApiError } from '@/lib/api';
 
-// Summary shape from /admin/questions list (fields we rely on).
-type QSummary = {
+// Single payload returned by /admin/questions — carries everything the
+// preview walkthrough needs so we never per-navigation-fetch the detail
+// endpoint (which trips the global rate limiter).
+type Q = {
   id: string;
   title: string;
   isActive: boolean;
   difficulty: string;
   type: 'TEXT' | 'IMAGE' | 'MIXED';
-  ticketNumber: number | null;
-  category: { id: string; name: string; slug: string };
-};
-
-// Full detail shape from /admin/questions/:id (adds stem, options, primaryMedia).
-type QDetail = QSummary & {
-  stemMarkdown: string;
   answerType: 'SINGLE' | 'MULTI';
+  ticketNumber: number | null;
   timeLimitSeconds: number | null;
+  stemMarkdown: string;
+  category: { id: string; name: string; slug: string };
   options: {
     id: string;
     orderIndex: number;
@@ -40,8 +38,7 @@ type QDetail = QSummary & {
 export default function AdminQuestionsPreviewPage() {
   const router = useRouter();
   const search = useSearchParams();
-  const [list, setList] = useState<QSummary[]>([]);
-  const [detail, setDetail] = useState<QDetail | null>(null);
+  const [list, setList] = useState<Q[]>([]);
   const [categoryId, setCategoryId] = useState<string>('');
   const [activeOnly, setActiveOnly] = useState<boolean>(true);
   const [loading, setLoading] = useState(true);
@@ -71,12 +68,13 @@ export default function AdminQuestionsPreviewPage() {
     [filtered.length, router, search],
   );
 
-  // Load list once.
+  // Load the full question set once — includes options, primaryMedia, stem,
+  // everything the preview needs. Arrow-key navigation does not refetch.
   useEffect(() => {
     (async () => {
       setLoading(true);
       try {
-        const r = await api<{ rows: QSummary[]; total: number }>(
+        const r = await api<{ rows: Q[]; total: number }>(
           '/admin/questions?pageSize=500',
         );
         // Stable ordering: by ticketNumber asc, null-last.
@@ -93,26 +91,6 @@ export default function AdminQuestionsPreviewPage() {
       }
     })();
   }, []);
-
-  // Whenever the selected question id changes, fetch its full detail.
-  useEffect(() => {
-    if (!current) {
-      setDetail(null);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const r = await api<QDetail>(`/admin/questions/${current.id}`);
-        if (!cancelled) setDetail(r);
-      } catch (e) {
-        if (!cancelled) setErr((e as ApiError).message ?? 'Failed to load question detail.');
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [current?.id]);
 
   // Keyboard nav: ← → Home End.
   useEffect(() => {
@@ -218,11 +196,11 @@ export default function AdminQuestionsPreviewPage() {
               <span className="pill-cyan">{current.category.name}</span>
               <span className="pill-gold">{current.difficulty}</span>
               <span className="pill-cyan">{current.type}</span>
-              {detail?.answerType === 'MULTI' && (
+              {current.answerType === 'MULTI' && (
                 <span className="pill-gold">MULTI</span>
               )}
-              {detail?.timeLimitSeconds != null && (
-                <span className="pill-cyan">{detail.timeLimitSeconds}s</span>
+              {current.timeLimitSeconds != null && (
+                <span className="pill-cyan">{current.timeLimitSeconds}s</span>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -263,55 +241,53 @@ export default function AdminQuestionsPreviewPage() {
 
           {/* The candidate-style preview panel */}
           <div className="panel">
-            {!detail && <div className="text-anchor-steel">Loading question…</div>}
-            {detail && (
-              <div
-                className={
-                  detail.primaryMedia
-                    ? 'grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:gap-8'
-                    : ''
-                }
-              >
-                {detail.primaryMedia && (
-                  <figure className="flex flex-col overflow-hidden rounded-xl border border-blueprint-cyan/20">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={detail.primaryMedia.url}
-                      alt={detail.primaryMedia.altText ?? ''}
-                      className="block h-auto w-full"
-                      style={{ maxHeight: '70vh', objectFit: 'contain' }}
-                    />
-                    <figcaption className="bg-deep-sea/80 px-4 py-2 text-xs text-anchor-steel">
-                      {(detail.primaryMedia.sizeBytes / 1024).toFixed(1)} KB
-                      {detail.primaryMedia.altText
-                        ? ` · ${detail.primaryMedia.altText}`
-                        : ''}
-                    </figcaption>
-                  </figure>
+            <div
+              className={
+                current.primaryMedia
+                  ? 'grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:gap-8'
+                  : ''
+              }
+            >
+              {current.primaryMedia && (
+                <figure className="flex flex-col overflow-hidden rounded-xl border border-blueprint-cyan/20">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={current.primaryMedia.url}
+                    alt={current.primaryMedia.altText ?? ''}
+                    className="block h-auto w-full"
+                    style={{ maxHeight: '70vh', objectFit: 'contain' }}
+                  />
+                  <figcaption className="bg-deep-sea/80 px-4 py-2 text-xs text-anchor-steel">
+                    {(current.primaryMedia.sizeBytes / 1024).toFixed(1)} KB
+                    {current.primaryMedia.altText
+                      ? ` · ${current.primaryMedia.altText}`
+                      : ''}
+                  </figcaption>
+                </figure>
+              )}
+
+              <div className="flex flex-col">
+                <h1
+                  className="mb-4 font-display font-bold leading-[1.05]"
+                  style={{ fontSize: 'clamp(1.5rem, 2.5vw, 2.5rem)' }}
+                >
+                  {current.title}
+                </h1>
+                <div
+                  className="mb-6 leading-relaxed"
+                  style={{ fontSize: 'clamp(1.1rem, 1.5vw, 1.5rem)' }}
+                >
+                  <SafeMarkdown source={current.stemMarkdown} />
+                </div>
+
+                {current.answerType === 'MULTI' && (
+                  <div className="mb-3 rounded-md bg-brass-gold/15 px-4 py-2.5 text-base text-brass-gold">
+                    🗳️ Multi-select — all correct options are marked below.
+                  </div>
                 )}
 
-                <div className="flex flex-col">
-                  <h1
-                    className="mb-4 font-display font-bold leading-[1.05]"
-                    style={{ fontSize: 'clamp(1.5rem, 2.5vw, 2.5rem)' }}
-                  >
-                    {detail.title}
-                  </h1>
-                  <div
-                    className="mb-6 leading-relaxed"
-                    style={{ fontSize: 'clamp(1.1rem, 1.5vw, 1.5rem)' }}
-                  >
-                    <SafeMarkdown source={detail.stemMarkdown} />
-                  </div>
-
-                  {detail.answerType === 'MULTI' && (
-                    <div className="mb-3 rounded-md bg-brass-gold/15 px-4 py-2.5 text-base text-brass-gold">
-                      🗳️ Multi-select — all correct options are marked below.
-                    </div>
-                  )}
-
-                  <div className="space-y-3">
-                    {detail.options.map((o, i) => {
+                <div className="space-y-3">
+                  {current.options.map((o, i) => {
                       const letter = String.fromCharCode(65 + i);
                       return (
                         <div
@@ -342,10 +318,9 @@ export default function AdminQuestionsPreviewPage() {
                         </div>
                       );
                     })}
-                  </div>
                 </div>
               </div>
-            )}
+            </div>
           </div>
 
           {/* Bottom secondary nav for comfort when scrolled */}
@@ -358,7 +333,7 @@ export default function AdminQuestionsPreviewPage() {
               ← Previous
             </button>
             <Link
-              href={detail ? `/admin/questions/${detail.id}` : '#'}
+              href={`/admin/questions/${current.id}`}
               className="btn-ghost"
             >
               Edit this question ↗
