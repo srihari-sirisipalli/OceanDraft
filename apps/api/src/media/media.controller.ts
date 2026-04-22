@@ -6,10 +6,17 @@ import {
   Param,
   Res,
 } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { S3Service } from '../common/s3/s3.service';
 
+// Media reads are public, cacheable, and fan out proportionally to the
+// number of images a single page renders (e.g. the admin preview
+// walkthrough loads ~150). Throttling them behind the 120 rpm default
+// breaks legitimate use. They stay safe because they return read-only
+// blobs keyed by opaque UUID and honour Cache-Control.
+@SkipThrottle()
 @Controller('media')
 export class MediaController {
   constructor(
