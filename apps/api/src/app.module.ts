@@ -38,7 +38,11 @@ import { CsrfMiddleware } from './common/middleware/csrf.middleware';
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([
-      { name: 'default', ttl: 60_000, limit: 120 },
+      // Per-IP general throttle. 300/min is generous enough for an
+      // authenticated admin browsing the preview walkthrough (which
+      // issues many list/media reads per page), while still blocking
+      // runaway loops. OTP / login stay on the 'strict' tier.
+      { name: 'default', ttl: 60_000, limit: 300 },
       { name: 'strict', ttl: 60_000, limit: 10 },
     ]),
     PrismaModule,
