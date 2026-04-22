@@ -1,5 +1,7 @@
+'use client';
+
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { WaveFooter } from './WaveFooter';
 import { MuteButton } from './MuteButton';
 import { ShipBackground } from './ShipBackground';
@@ -51,10 +53,19 @@ export function Shell({
   scene?: Scene;
   sceneCtx?: Omit<SceneCtx, 'variant'>;
 }) {
-  const flavor =
-    scene && sceneCtx
-      ? pickSceneFlavor({ variant: scene, ...sceneCtx })
-      : undefined;
+  // Pick the scene flavor ONCE per stable context. Without useMemo, every
+  // parent re-render (countdown tick, scroll listener, state update) would
+  // call Math.random() via the fallback path in pickSceneFlavor and swap
+  // the background out from under the visitor — very jarring.
+  const flavor = useMemo(() => {
+    if (!scene || !sceneCtx) return undefined;
+    return pickSceneFlavor({ variant: scene, ...sceneCtx });
+  }, [
+    scene,
+    sceneCtx?.categorySlug,
+    sceneCtx?.timeTakenMs,
+    sceneCtx?.timeLimitSeconds,
+  ]);
   return (
     <div className="shell">
       <TopBar right={topRight} />

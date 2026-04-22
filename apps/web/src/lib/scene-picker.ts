@@ -18,7 +18,7 @@ const COUNT: Record<SceneVariant, number> = {
   reveal: 3,
   question: 5,
   'result-correct': 3,
-  'result-wrong': 3,
+  'result-wrong': 4,
   timeout: 3,
   default: 2,
 };
@@ -62,6 +62,11 @@ export function pickSceneFlavor(ctx: SceneCtx): number {
     }
   }
 
-  // 3. Random fallback
+  // 3. Deterministic default for wrong-answer scenes — pin to RoughSeas
+  // (index 3) so the user sees the vivid storm rather than a random
+  // fragment from the abstract scenes.
+  if (ctx.variant === 'result-wrong') return 3;
+
+  // 4. Random fallback for remaining variants
   return Math.floor(Math.random() * max);
 }

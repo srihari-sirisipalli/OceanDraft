@@ -30,7 +30,7 @@ const NUM_VARIANTS: Record<Variant, number> = {
   reveal: 3,
   question: 5,
   'result-correct': 3,
-  'result-wrong': 3,
+  'result-wrong': 4,
   timeout: 3,
   default: 2,
 };
@@ -88,6 +88,7 @@ function renderScene(variant: Variant, flavor: number) {
         <SunkenCompass key="a" />,
         <BrokenAnchorMemorial key="b" />,
         <CryingMoon key="c" />,
+        <RoughSeas key="d" />,
       ][flavor];
     case 'timeout':
       return [
@@ -626,6 +627,173 @@ const CryingMoon: FC = () => (
   </svg>
 );
 
+const RoughSeas: FC = () => (
+  // Concrete, energetic storm scene: heaving sea, tossing ship, driving rain,
+  // lightning behind thick clouds. No abstract symbolism — reads instantly.
+  <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 h-full w-full">
+    <defs>
+      <linearGradient id="od-rs-sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#0A0618" />
+        <stop offset="55%" stopColor="#1A1028" />
+        <stop offset="100%" stopColor="#2A1838" />
+      </linearGradient>
+      <linearGradient id="od-rs-wave" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#1E1630" />
+        <stop offset="100%" stopColor="#0A0412" />
+      </linearGradient>
+      <linearGradient id="od-rs-foam" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#D8CFB8" stopOpacity="0.7" />
+        <stop offset="100%" stopColor="#D8CFB8" stopOpacity="0" />
+      </linearGradient>
+      <radialGradient id="od-rs-flash" cx="50%" cy="30%" r="60%">
+        <stop offset="0%" stopColor="#F4EADC" stopOpacity="0.5" />
+        <stop offset="100%" stopColor="#F4EADC" stopOpacity="0" />
+      </radialGradient>
+    </defs>
+    <rect width="1440" height="900" fill="url(#od-rs-sky)" />
+
+    {/* lightning flash — full-viewport strobe every few seconds */}
+    <rect
+      width="1440"
+      height="900"
+      fill="url(#od-rs-flash)"
+      style={{ animation: 'od-rs-flash 6s ease-in-out infinite' }}
+    />
+    {/* lightning bolt */}
+    <polyline
+      points="920,80 900,180 935,200 880,340 920,360 860,520"
+      fill="none"
+      stroke="#F4EADC"
+      strokeWidth="3"
+      strokeOpacity="0.95"
+      style={{ animation: 'od-rs-bolt 6s linear infinite' }}
+    />
+
+    {/* stacked storm clouds — driven left */}
+    {Array.from({ length: 6 }).map((_, i) => (
+      <g
+        key={`cloud-${i}`}
+        style={{ animation: `od-rs-cloud ${28 + i * 4}s linear ${i * 3}s infinite` }}
+      >
+        <ellipse
+          cx={240 + i * 220}
+          cy={110 + (i % 2) * 30}
+          rx={160 + (i % 3) * 40}
+          ry={36}
+          fill="#130A22"
+          opacity="0.9"
+        />
+        <ellipse
+          cx={200 + i * 220}
+          cy={96 + (i % 2) * 30}
+          rx={80}
+          ry={28}
+          fill="#1A1028"
+          opacity="0.88"
+        />
+        <ellipse
+          cx={290 + i * 220}
+          cy={98 + (i % 2) * 30}
+          rx={90}
+          ry={30}
+          fill="#1A1028"
+          opacity="0.85"
+        />
+      </g>
+    ))}
+
+    {/* Three wave layers, back → mid → front, each slightly different speed */}
+    <g style={{ animation: 'od-rs-wave-back 9s ease-in-out infinite' }}>
+      <path
+        d="M-40 560 Q180 500 360 560 T720 560 T1080 560 T1480 560 L1480 900 L-40 900 Z"
+        fill="url(#od-rs-wave)"
+        opacity="0.85"
+      />
+      <path
+        d="M-40 560 Q180 500 360 560 T720 560 T1080 560 T1480 560"
+        fill="none"
+        stroke="url(#od-rs-foam)"
+        strokeWidth="3"
+      />
+    </g>
+    <g style={{ animation: 'od-rs-wave-mid 6s ease-in-out infinite' }}>
+      <path
+        d="M-60 650 Q160 580 340 650 T700 650 T1060 650 T1480 650 L1480 900 L-60 900 Z"
+        fill="url(#od-rs-wave)"
+        opacity="0.92"
+      />
+      <path
+        d="M-60 650 Q160 580 340 650 T700 650 T1060 650 T1480 650"
+        fill="none"
+        stroke="url(#od-rs-foam)"
+        strokeWidth="4"
+      />
+    </g>
+
+    {/* Ship — tossed center, pitches back and forth */}
+    <g
+      transform="translate(720 620)"
+      style={{
+        transformBox: 'fill-box',
+        transformOrigin: '50% 70%',
+        animation: 'od-rs-ship 4s ease-in-out infinite',
+      }}
+    >
+      {/* hull */}
+      <path
+        d="M-160 0 L160 0 L130 46 L-130 46 Z"
+        fill="#0B0812"
+        stroke="#C59D5F"
+        strokeWidth="2"
+      />
+      {/* deckhouse */}
+      <rect x="-40" y="-34" width="80" height="34" fill="#1A1028" stroke="#C59D5F" strokeWidth="1.5" />
+      {/* mast */}
+      <rect x="-2" y="-100" width="4" height="68" fill="#C59D5F" />
+      {/* funnel */}
+      <rect x="44" y="-30" width="20" height="30" fill="#1A1028" stroke="#C59D5F" strokeWidth="1.2" />
+      <rect x="44" y="-34" width="20" height="6" fill="#D04747" />
+      {/* tiny porthole */}
+      <circle cx="-60" cy="20" r="4" fill="#F4B061" opacity="0.8" />
+      <circle cx="60" cy="20" r="4" fill="#F4B061" opacity="0.8" />
+      {/* spray at the bow */}
+      <ellipse cx="-180" cy="6" rx="36" ry="10" fill="#D8CFB8" opacity="0.5" />
+      <ellipse cx="180" cy="6" rx="36" ry="10" fill="#D8CFB8" opacity="0.5" />
+    </g>
+
+    {/* Front wave — drawn ON TOP of ship bottom so the ship "dips into" it */}
+    <g style={{ animation: 'od-rs-wave-front 4.5s ease-in-out infinite' }}>
+      <path
+        d="M-80 740 Q120 660 320 740 T680 740 T1040 740 T1480 740 L1480 900 L-80 900 Z"
+        fill="url(#od-rs-wave)"
+      />
+      <path
+        d="M-80 740 Q120 660 320 740 T680 740 T1040 740 T1480 740"
+        fill="none"
+        stroke="url(#od-rs-foam)"
+        strokeWidth="5"
+      />
+    </g>
+
+    {/* driving rain */}
+    {Array.from({ length: 60 }).map((_, i) => (
+      <line
+        key={`rn-${i}`}
+        x1={(i * 53) % 1440}
+        y1="-20"
+        x2={((i * 53) % 1440) - 28}
+        y2="120"
+        stroke="#7DC8E8"
+        strokeOpacity="0.26"
+        strokeWidth="1.2"
+        style={{
+          animation: `od-rs-rain ${0.55 + (i % 4) * 0.15}s linear ${(i % 7) * 0.08}s infinite`,
+        }}
+      />
+    ))}
+  </svg>
+);
+
 // ──────────────────────────────────────────────────────────────
 // Timeout variants — symbolic, abstract (no ship required)
 // ──────────────────────────────────────────────────────────────
@@ -977,6 +1145,39 @@ const SharedAnimations: FC = () => (
       0% { transform: translateY(0); opacity: 0; }
       15% { opacity: 0.45; }
       100% { transform: translateY(-760px); opacity: 0; }
+    }
+    /* RoughSeas — vivid storm scene */
+    @keyframes od-rs-flash {
+      0%, 88%, 94%, 100% { opacity: 0; }
+      90%, 92% { opacity: 0.8; }
+    }
+    @keyframes od-rs-bolt {
+      0%, 89%, 93%, 100% { opacity: 0; }
+      90%, 92% { opacity: 1; }
+    }
+    @keyframes od-rs-cloud {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-400px); }
+    }
+    @keyframes od-rs-wave-back {
+      0%, 100% { transform: translateX(0) translateY(0); }
+      50% { transform: translateX(-20px) translateY(6px); }
+    }
+    @keyframes od-rs-wave-mid {
+      0%, 100% { transform: translateX(0) translateY(0); }
+      50% { transform: translateX(24px) translateY(-8px); }
+    }
+    @keyframes od-rs-wave-front {
+      0%, 100% { transform: translateX(0) translateY(0); }
+      50% { transform: translateX(-30px) translateY(10px); }
+    }
+    @keyframes od-rs-ship {
+      0%, 100% { transform: translate(720px, 620px) rotate(-10deg) translateY(-8px); }
+      50% { transform: translate(720px, 620px) rotate(9deg) translateY(10px); }
+    }
+    @keyframes od-rs-rain {
+      0% { transform: translateY(-140px); }
+      100% { transform: translateY(900px); }
     }
   `}</style>
 );
