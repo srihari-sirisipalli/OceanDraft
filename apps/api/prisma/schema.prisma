@@ -348,6 +348,7 @@ model Attempt {
   updatedAt           DateTime       @updatedAt
 
   @@index([candidateId, status])
+  @@index([sessionId, status])
   @@index([startedAt])
   @@index([questionId])
 }
@@ -372,6 +373,10 @@ model ResultTemplate {
   isActive              Boolean  @default(true)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+
+  // Supports the prefix-scan on every attempt submission (HOORAY_*, FAIL_*,
+  // EXPIRE_*). The @unique above already covers equality lookups.
+  @@index([isActive, key])
 }
 
 // -------------------- Settings, Audit, Exports, SMS --------------------

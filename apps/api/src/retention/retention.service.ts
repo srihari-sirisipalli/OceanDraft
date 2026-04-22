@@ -23,6 +23,14 @@ export class RetentionService {
 
   async scrubOldCandidates() {
     const days = Number(process.env.RETENTION_DAYS ?? 180);
+    // Safety floor: a typo like RETENTION_DAYS=1 would nuke the entire
+    // candidate table in one cron cycle. Refuse to run below 30 days.
+    if (!Number.isFinite(days) || days < 30) {
+      this.logger.warn(
+        `Retention: RETENTION_DAYS=${process.env.RETENTION_DAYS ?? '(unset)'} below 30-day floor — skipping scrub.`,
+      );
+      return;
+    }
     const cutoff = new Date(Date.now() - days * 24 * 3600 * 1000);
     const rows = await this.prisma.candidate.findMany({
       where: { lastSeenAt: { lt: cutoff } },
