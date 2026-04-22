@@ -46,6 +46,11 @@ export function pickSceneFlavor(ctx: SceneCtx): number {
   // 1. Topic-aware
   if (ctx.categorySlug) {
     const prefs = TOPIC_MAP[ctx.categorySlug];
+    if (!prefs && typeof console !== 'undefined' && process.env.NODE_ENV !== 'production') {
+      // Missing from the map usually means a newly seeded category not yet
+      // wired here. Loud in dev, silent in production.
+      console.warn('[scene-picker] unknown category slug:', ctx.categorySlug);
+    }
     const idx = prefs?.[ctx.variant];
     if (idx != null && idx < max) return idx;
   }

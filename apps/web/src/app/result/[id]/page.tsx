@@ -78,6 +78,21 @@ export default function ResultPage({ params }: { params: { id: string } }) {
     };
   }, [params.id, expiredHint]);
 
+  // Stash the status on the result payload so a later navigation (Return
+  // to shore → landing → second visitor) has a sensible transition even
+  // when the result page was reached directly (refresh, deep link).
+  useEffect(() => {
+    if (!data) return;
+    try {
+      sessionStorage.setItem(
+        'od:lastResultStatus',
+        data.status === 'CORRECT' ? 'correct' : 'wrong',
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [data]);
+
   // Play sound + confetti exactly once when the result arrives.
   const celebrated = useRef(false);
   useEffect(() => {
@@ -210,7 +225,9 @@ export default function ResultPage({ params }: { params: { id: string } }) {
         : { x: [0, -14, 14, -10, 10, 0] }
     : undefined;
   const iconTrans = correct
-    ? { duration: 2.8, repeat: Infinity, ease: 'easeInOut' as const }
+    ? // Three bounces (~8 s) then hold — infinite repeat became tedious
+      // over the 120-second safety window.
+      { duration: 2.8, repeat: 3, ease: 'easeInOut' as const }
     : expired
       ? { duration: 3, repeat: Infinity, ease: 'easeInOut' as const }
       : { duration: 0.55 };
@@ -237,6 +254,7 @@ export default function ResultPage({ params }: { params: { id: string } }) {
           <motion.div
             initial={{ scale: 0.5, opacity: 0 }}
             animate={animationsOn ? { scale: 1, opacity: 1 } : { opacity: 1 }}
+            exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.3 } }}
             transition={{ duration: 0.5, ease: 'backOut' }}
             className="relative mb-8"
           >
@@ -322,7 +340,14 @@ function fireConfetti() {
     '#C59D5F', '#3DB27D', '#2FB6C6', '#F4EADC', '#F4B061',
     '#D04747', '#7DC8E8', '#E8B4DC', '#FFD54F',
   ];
-  const base = { ticks: 220, scalar: 1.05, colors: palette };
+  // `disableForReducedMotion` makes every call a no-op when the OS signals
+  // reduced motion, even if `branding.animationsEnabled` is on server-side.
+  const base = {
+    ticks: 220,
+    scalar: 1.05,
+    colors: palette,
+    disableForReducedMotion: true,
+  };
 
   // Opening — twin edge cannons.
   confetti({ ...base, particleCount: 120, spread: 70, startVelocity: 65, angle: 55, origin: { x: 0, y: 0.9 } });

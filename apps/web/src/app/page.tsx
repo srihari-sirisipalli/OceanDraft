@@ -50,6 +50,14 @@ function KioskGate({
   async function start() {
     setLoading(true);
     setErr(null);
+    // Scrub any kiosk-session state from a previous visitor on this tab so
+    // the next result transition + cached assignment start clean.
+    try {
+      sessionStorage.removeItem('od:lastResultStatus');
+      sessionStorage.removeItem('od:assignment');
+    } catch {
+      /* ignore */
+    }
     try {
       await api('/candidates/guest', { method: 'POST' });
       onReady('/reveal');

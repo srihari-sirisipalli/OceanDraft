@@ -96,6 +96,21 @@ export default function QuestionPage() {
     return () => clearInterval(t);
   }, [shownAt]);
 
+  // Single exit helper. Every path that leaves /question runs through here
+  // so the stash + drone + navigation happen in one stable order, in the
+  // right order (stash first, stop drone, then navigate — never after the
+  // route has unmounted this component).
+  function goToResult(resultId: string, status: 'correct' | 'wrong', replace = false) {
+    try {
+      sessionStorage.setItem('od:lastResultStatus', status);
+    } catch {
+      /* ignore */
+    }
+    stopOceanAmbience();
+    if (replace) router.replace(`/result/${resultId}?expired=1`);
+    else router.push(`/result/${resultId}`);
+  }
+
   async function onSubmit() {
     if (!data || selectedIds.length === 0) return;
     setSubmitting(true);
@@ -122,16 +137,7 @@ export default function QuestionPage() {
           body: JSON.stringify(payload),
         },
       );
-      try {
-        sessionStorage.setItem(
-          'od:lastResultStatus',
-          r.status === 'CORRECT' ? 'correct' : 'wrong',
-        );
-      } catch {
-        /* ignore */
-      }
-      stopOceanAmbience();
-      router.push(`/result/${r.resultId}`);
+      goToResult(r.resultId, r.status === 'CORRECT' ? 'correct' : 'wrong');
     } catch (err) {
       setError((err as ApiError).message ?? 'Submit failed.');
     } finally {
@@ -197,16 +203,7 @@ export default function QuestionPage() {
             method: 'POST',
             body: JSON.stringify(payload),
           });
-          try {
-            sessionStorage.setItem(
-              'od:lastResultStatus',
-              r.status === 'CORRECT' ? 'correct' : 'wrong',
-            );
-          } catch {
-            /* ignore */
-          }
-          stopOceanAmbience();
-          router.push(`/result/${r.resultId}`);
+          goToResult(r.resultId, r.status === 'CORRECT' ? 'correct' : 'wrong');
           return;
         } catch {
           /* fall through to expire */
@@ -218,18 +215,10 @@ export default function QuestionPage() {
           body: JSON.stringify({ attemptId: data.attemptId }),
         });
       } catch {
-        /* ignore */
+        /* ignore — proceed to result page either way */
       }
-      // Timeout lands on result page too — tell the transition to use waveCrash.
-      try {
-        sessionStorage.setItem('od:lastResultStatus', 'wrong');
-      } catch {
-        /* ignore */
-      }
-      stopOceanAmbience();
-      // Keep the visitor on a result-style page (timeout scene) so they can
-      // see the "time's up" message instead of being bounced to landing.
-      router.replace(`/result/${data.attemptId}?expired=1`);
+      // Timeout lands on result page with the wave-crash transition.
+      goToResult(data.attemptId, 'wrong', /* replace */ true);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timesUp]);

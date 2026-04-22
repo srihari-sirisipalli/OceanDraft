@@ -71,7 +71,12 @@ function ensureCtx(): { c: AudioContext; m: GainNode } | null {
       master = ctx.createGain();
       master.gain.value = 1;
       master.connect(ctx.destination);
-    } catch {
+    } catch (e) {
+      // Rare — some locked-down browsers block AudioContext. Surface it in
+      // dev so a silent booth is traceable rather than mysterious.
+      if (typeof console !== 'undefined' && process.env.NODE_ENV !== 'production') {
+        console.warn('[sound] AudioContext unavailable:', e);
+      }
       return null;
     }
   }
@@ -663,6 +668,10 @@ export function stopOceanAmbience() {
   const c = ensureCtx();
   if (!c || !ambienceNodes) return;
   const { noiseSrc, lfo, sub, masterGain, subGain } = ambienceNodes;
+  // Clear the handle first so a rapid start-stop-start sequence (e.g. quick
+  // navigation out and back to /question) can build a fresh graph while
+  // this one fades out in the background.
+  ambienceNodes = null;
   const now = c.c.currentTime;
   masterGain.gain.cancelScheduledValues(now);
   masterGain.gain.setValueAtTime(masterGain.gain.value, now);
@@ -676,5 +685,4 @@ export function stopOceanAmbience() {
   } catch {
     /* already stopped */
   }
-  ambienceNodes = null;
 }

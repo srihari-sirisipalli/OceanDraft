@@ -35,6 +35,9 @@ export function PageTransition({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined' && pathname.startsWith('/result/')) {
       const stashed = sessionStorage.getItem('od:lastResultStatus');
       if (stashed === 'correct' || stashed === 'wrong') status = stashed;
+      // Clear immediately so the next navigation (including a subsequent
+      // visitor on the same kiosk tab) starts from a clean slate.
+      sessionStorage.removeItem('od:lastResultStatus');
     }
     return pickTransition(prevPath.current, pathname, status);
   }, [pathname, reducedMotion]);

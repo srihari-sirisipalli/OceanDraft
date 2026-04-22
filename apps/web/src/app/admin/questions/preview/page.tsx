@@ -68,6 +68,16 @@ export default function AdminQuestionsPreviewPage() {
     [filtered.length, router, search],
   );
 
+  // If a filter change shrinks the list below the current index, clamp
+  // back so we never render a phantom empty slot.
+  useEffect(() => {
+    if (filtered.length > 0 && idx >= filtered.length) {
+      setIndex(filtered.length - 1);
+    }
+    // setIndex is stable via useCallback
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered.length]);
+
   // Load the full question set once — includes options, primaryMedia, stem,
   // everything the preview needs. Arrow-key navigation does not refetch.
   useEffect(() => {
@@ -349,9 +359,10 @@ export default function AdminQuestionsPreviewPage() {
         </>
       )}
 
-      {/* Floating edge arrow buttons for quick click navigation */}
+      {/* Floating edge arrow buttons — laptop-only. Under lg they occlude
+          content; keyboard nav and the inline buttons above/below still work. */}
       {!loading && total > 0 && (
-        <>
+        <div className="hidden lg:block">
           <button
             onClick={() => setIndex(idx - 1)}
             disabled={atStart}
@@ -368,7 +379,7 @@ export default function AdminQuestionsPreviewPage() {
           >
             →
           </button>
-        </>
+        </div>
       )}
     </div>
   );
