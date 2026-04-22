@@ -12,6 +12,7 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
     "import:marine-quiz": "ts-node --transpile-only scripts/import-marine-quiz.ts",
+    "update:marine-quiz-images": "ts-node --transpile-only scripts/update-marine-quiz-images.ts",
     "lint": "eslint \"src/**/*.ts\"",
     "test": "jest"
   },

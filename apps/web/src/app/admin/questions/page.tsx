@@ -79,6 +79,9 @@ export default function AdminQuestionsPage() {
           <button onClick={load} className="btn-secondary">
             Search
           </button>
+          <Link href="/admin/questions/preview" className="btn-secondary">
+            ▶ Preview
+          </Link>
           <Link href="/admin/questions/new" className="btn-primary">
             + New question
           </Link>

@@ -232,7 +232,7 @@ Other booth-operator toggles worth knowing — all live under admin `/admin/sett
 
 Sign in at http://localhost:3000/admin/login. Top-nav sections:
 
-- **Questions** — the question bank. Create / edit / archive / re-order. Each question has a category, difficulty, type (TEXT / IMAGE / MIXED), answer type (SINGLE / MULTI), options, optional primary image, optional time limit.
+- **Questions** — the question bank. Create / edit / archive / re-order. Each question has a category, difficulty, type (TEXT / IMAGE / MIXED), answer type (SINGLE / MULTI), options, optional primary image, optional time limit. The **▶ Preview** button walks through every question in candidate-style layout — use the ← / → arrow keys or the on-screen buttons to page through, and jump with Home / End.
 - **Categories** — organisational buckets. The scene-picker uses the slug here to pick a topic-matching ocean background ("navigation" → lighthouse, "propulsion" → container ship, and so on).
 - **Media** — uploads the images used by questions. Stored in MinIO.
 - **Templates** — pass / fail / timeout headlines shown on the result screen. Add as many as you like; one is picked at random per result. Keys must start with `HOORAY_` / `FAIL_` / `EXPIRE_`.
@@ -393,6 +393,7 @@ Essentials:
 | `npm run prisma:migrate` | Apply pending DB migrations |
 | `npm run prisma:seed` | Seed admin, categories, templates, demo questions |
 | `npm run -w @oceandraft/api import:marine-quiz` | Import 50 ship-trivia questions from `Marine_Quiz_With_Images.xlsx` (optional) |
+| `npm run -w @oceandraft/api update:marine-quiz-images` | Swap the ship-trivia images for resized ones from a folder-per-question tree (default `C:\Users\Sri\Downloads\quiz_images\quiz_images`, override with `--root`) |
 | `npm run start:api` | Production-mode API |
 | `npm run start:web` | Production-mode Web |
 
