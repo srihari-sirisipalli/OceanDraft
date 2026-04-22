@@ -11,6 +11,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -219,6 +220,10 @@ export class AdminAttemptController {
     res.send(lines.join('\n'));
   }
 
+  // Tight per-handler throttle: resetting is a destructive bulk op. 20/min
+  // is ample for legitimate admin use and blocks a compromised session
+  // from mass-resetting candidates.
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('reset')
   @AdminRoles('ADMIN', 'SUPER_ADMIN')
   async reset(@Body() dto: ResetAttemptsDto, @Req() req: AdminReq) {

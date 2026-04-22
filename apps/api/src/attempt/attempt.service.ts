@@ -20,15 +20,9 @@ export class AttemptService {
     optionIds?: string[];
     clientNonce: string;
   }) {
-    // Nonce replay check
-    const existingNonce = await this.prisma.attempt.findFirst({
-      where: { clientNonce: params.clientNonce },
-      select: { id: true, status: true },
-    });
-    if (existingNonce && existingNonce.id !== params.attemptId) {
-      throw new ConflictException({ code: 'NONCE_REUSED' });
-    }
-
+    // Fetch attempt + question for validation. Note: we deliberately do
+    // NOT check the nonce here; the atomic updateMany below guards against
+    // replays via its WHERE clause, which is race-safe.
     const attempt = await this.prisma.attempt.findUnique({
       where: { id: params.attemptId },
       include: { question: { include: { options: true } } },
@@ -42,6 +36,15 @@ export class AttemptService {
         code: 'ATTEMPT_ALREADY_SUBMITTED',
         message: 'This attempt has already been submitted.',
       });
+    }
+    // Reject reuse of a nonce across a different attempt (doesn't catch
+    // the same-attempt double-submit race — the atomic update below does).
+    const foreignNonce = await this.prisma.attempt.findFirst({
+      where: { clientNonce: params.clientNonce, id: { not: params.attemptId } },
+      select: { id: true },
+    });
+    if (foreignNonce) {
+      throw new ConflictException({ code: 'NONCE_REUSED' });
     }
 
     const isMulti = attempt.question.answerType === 'MULTI';
@@ -106,10 +109,13 @@ export class AttemptService {
       }
     }
 
-    const updated = await this.prisma.attempt.update({
-      where: { id: attempt.id },
+    // Atomic transition from IN_PROGRESS → SUBMITTED. If a racing request
+    // already flipped the status (same attemptId, double-submit), count
+    // will be 0 and we fail with ATTEMPT_ALREADY_SUBMITTED. This closes
+    // the nonce double-submit window.
+    const updateResult = await this.prisma.attempt.updateMany({
+      where: { id: attempt.id, status: 'IN_PROGRESS' },
       data: {
-        // For single: also populate the legacy selectedOptionId link.
         selectedOptionId: isMulti ? null : selectedOptions[0].id,
         selectedOptionIds: selectedIds,
         status: 'SUBMITTED',
@@ -119,6 +125,15 @@ export class AttemptService {
         clientNonce: params.clientNonce,
         resultTemplateUsed: templateKey,
       },
+    });
+    if (updateResult.count === 0) {
+      throw new ConflictException({
+        code: 'ATTEMPT_ALREADY_SUBMITTED',
+        message: 'This attempt has already been submitted.',
+      });
+    }
+    const updated = await this.prisma.attempt.findUniqueOrThrow({
+      where: { id: attempt.id },
     });
 
     await this.prisma.resultRecord.create({

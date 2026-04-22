@@ -12,6 +12,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
   IsArray,
   IsBoolean,
@@ -76,6 +77,9 @@ export class AdminUserController {
     };
   }
 
+  // Admin creation is high-leverage: a compromised session could spawn
+  // many privileged accounts. 5/min is plenty for legitimate onboarding.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post()
   async create(@Body() dto: CreateAdminDto, @Req() req: AdminReq) {
     const hash = await argon2.hash(dto.password, { type: argon2.argon2id });
